@@ -21,7 +21,8 @@ PID=$1
 HEAP_DUMP_PATH=$2
 echo "Dumping heap from $PID into $HEAP_DUMP_PATH"
 
-CODE_PATH="$(realpath .)/pyheap"
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+CODE_PATH="$SCRIPT_DIR/pyheap"
 INJECTOR_PATH="$CODE_PATH/injector.py"
 
 echo "Injector path: $INJECTOR_PATH"
