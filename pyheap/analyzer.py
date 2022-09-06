@@ -100,31 +100,16 @@ class InboundReferences:
         return self._inbound_references[addr]
 
 
-class Heap:
-    def __init__(self, heap_dict: Dict[str, Any]) -> None:
-        # Filter unknown objects from referents.
-        filtered_objects = 0
-        for obj in heap_dict["objects"].values():
-            for i in range(len(obj["referents"]) - 1, -1, -1):
-                r = obj["referents"][i]
-                if str(r) not in heap_dict["objects"]:
-                    filtered_objects += 1
-                    obj["referents"].pop(i)
-        LOG.info("%d unknown objects filtered", filtered_objects)
-
-        self._objects: Dict[Address, PyObject] = {
-            int(addr): PyObject.from_dict(obj_dict)
-            for addr, obj_dict in heap_dict["objects"].items()
-        }
-        self._types: Dict[Address, str] = {
-            int(addr): obj for addr, obj in heap_dict["types"].items()
-        }
-        self._inbound_references = InboundReferences(self._objects)
-
-        self._retained_heap: Dict[Address, int] = {}
+class RetainedHeap:
+    def __init__(
+        self, objects: Dict[Address, PyObject], inbound_references: InboundReferences
+    ) -> None:
+        self._objects = objects
+        self._inbound_references = inbound_references
         self._subtree_roots = set()
+        self._retained_heap: Dict[Address, int] = {}
 
-    def calculate_retained_heap(self) -> None:
+    def calculate_for_all(self) -> None:
         self._find_strict_subtrees()
 
         LOG.info("Calculating retained heap")
@@ -258,6 +243,38 @@ class Heap:
                 inbound_reference_view[r] = self._inbound_references[r] - deleted
             else:
                 inbound_reference_view[r].remove(current)
+
+    def __getitem__(self, addr: Address) -> int:
+        return self._retained_heap[addr]
+
+
+class Heap:
+    def __init__(self, heap_dict: Dict[str, Any]) -> None:
+        # Filter unknown objects from referents.
+        filtered_objects = 0
+        for obj in heap_dict["objects"].values():
+            for i in range(len(obj["referents"]) - 1, -1, -1):
+                r = obj["referents"][i]
+                if str(r) not in heap_dict["objects"]:
+                    filtered_objects += 1
+                    obj["referents"].pop(i)
+        LOG.info("%d unknown objects filtered", filtered_objects)
+
+        self._objects: Dict[Address, PyObject] = {
+            int(addr): PyObject.from_dict(obj_dict)
+            for addr, obj_dict in heap_dict["objects"].items()
+        }
+        self._types: Dict[Address, str] = {
+            int(addr): obj for addr, obj in heap_dict["types"].items()
+        }
+        self._inbound_references = InboundReferences(self._objects)
+        self._retained_heap = RetainedHeap(self._objects, self._inbound_references)
+
+    def calculate_retained_heap(self) -> None:
+        self._retained_heap.calculate_for_all()
+
+    def retained_heap(self, addr: Address) -> int:
+        return self._retained_heap.retained_heap(addr)
 
     def objects_sorted_by_retained_heap(self) -> List[Tuple[PyObject, int]]:
         addrs = [(o, self._retained_heap[o.address]) for o in self._objects.values()]
