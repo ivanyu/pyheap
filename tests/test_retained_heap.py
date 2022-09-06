@@ -19,22 +19,24 @@ from pyheap.analyzer import Heap
 def test_minimal() -> None:
     heap_dict = {
         "objects": {
-            "1": {"address": 1, "size": 20, "type": None, "referents": []},
+            "1": {"address": 1, "size": 20, "type": None, "str": "", "referents": []},
         },
         "types": {},
     }
     heap = Heap(heap_dict)
+    heap.calculate_retained_heap()
     assert heap.retained_heap(1) == 20
 
 
 def test_self_reference() -> None:
     heap_dict = {
         "objects": {
-            "1": {"address": 1, "size": 20, "type": None, "referents": [1]},
+            "1": {"address": 1, "size": 20, "type": None, "str": "", "referents": [1]},
         },
         "types": {},
     }
     heap = Heap(heap_dict)
+    heap.calculate_retained_heap()
     assert heap.retained_heap(1) == 20
 
 
@@ -44,13 +46,14 @@ def test_circular_reference() -> None:
     # +---------+
     heap_dict = {
         "objects": {
-            "1": {"address": 1, "size": 10, "type": None, "referents": [2]},
-            "2": {"address": 2, "size": 20, "type": None, "referents": [3]},
-            "3": {"address": 3, "size": 30, "type": None, "referents": [1]},
+            "1": {"address": 1, "size": 10, "type": None, "str": "", "referents": [2]},
+            "2": {"address": 2, "size": 20, "type": None, "str": "", "referents": [3]},
+            "3": {"address": 3, "size": 30, "type": None, "str": "", "referents": [1]},
         },
         "types": {},
     }
     heap = Heap(heap_dict)
+    heap.calculate_retained_heap()
     assert heap.retained_heap(1) == 10 + 20 + 30
     assert heap.retained_heap(2) == 10 + 20 + 30
     assert heap.retained_heap(3) == 10 + 20 + 30
@@ -62,14 +65,21 @@ def test_simple_tree() -> None:
     #  \-> 4
     heap_dict = {
         "objects": {
-            "1": {"address": 1, "size": 10, "type": None, "referents": [2, 3, 4]},
-            "2": {"address": 2, "size": 20, "type": None, "referents": []},
-            "3": {"address": 3, "size": 30, "type": None, "referents": []},
-            "4": {"address": 4, "size": 40, "type": None, "referents": []},
+            "1": {
+                "address": 1,
+                "size": 10,
+                "type": None,
+                "str": "",
+                "referents": [2, 3, 4],
+            },
+            "2": {"address": 2, "size": 20, "type": None, "str": "", "referents": []},
+            "3": {"address": 3, "size": 30, "type": None, "str": "", "referents": []},
+            "4": {"address": 4, "size": 40, "type": None, "str": "", "referents": []},
         },
         "types": {},
     }
     heap = Heap(heap_dict)
+    heap.calculate_retained_heap()
     assert heap.retained_heap(1) == 10 + 20 + 30 + 40
     assert heap.retained_heap(2) == 20
     assert heap.retained_heap(3) == 30
@@ -88,21 +98,52 @@ def test_multi_level_tree() -> None:
     #         \--> 11
     heap_dict = {
         "objects": {
-            "1": {"address": 1, "size": 10, "type": None, "referents": [2, 3, 4]},
-            "2": {"address": 2, "size": 20, "type": None, "referents": [5, 6, 7]},
-            "3": {"address": 3, "size": 30, "type": None, "referents": [8]},
-            "4": {"address": 4, "size": 40, "type": None, "referents": [9, 10, 11]},
-            "5": {"address": 5, "size": 50, "type": None, "referents": []},
-            "6": {"address": 6, "size": 60, "type": None, "referents": []},
-            "7": {"address": 7, "size": 70, "type": None, "referents": []},
-            "8": {"address": 8, "size": 80, "type": None, "referents": []},
-            "9": {"address": 9, "size": 90, "type": None, "referents": []},
-            "10": {"address": 10, "size": 100, "type": None, "referents": []},
-            "11": {"address": 11, "size": 110, "type": None, "referents": []},
+            "1": {
+                "address": 1,
+                "size": 10,
+                "type": None,
+                "str": "",
+                "referents": [2, 3, 4],
+            },
+            "2": {
+                "address": 2,
+                "size": 20,
+                "type": None,
+                "str": "",
+                "referents": [5, 6, 7],
+            },
+            "3": {"address": 3, "size": 30, "type": None, "str": "", "referents": [8]},
+            "4": {
+                "address": 4,
+                "size": 40,
+                "type": None,
+                "str": "",
+                "referents": [9, 10, 11],
+            },
+            "5": {"address": 5, "size": 50, "type": None, "str": "", "referents": []},
+            "6": {"address": 6, "size": 60, "type": None, "str": "", "referents": []},
+            "7": {"address": 7, "size": 70, "type": None, "str": "", "referents": []},
+            "8": {"address": 8, "size": 80, "type": None, "str": "", "referents": []},
+            "9": {"address": 9, "size": 90, "type": None, "str": "", "referents": []},
+            "10": {
+                "address": 10,
+                "size": 100,
+                "type": None,
+                "str": "",
+                "referents": [],
+            },
+            "11": {
+                "address": 11,
+                "size": 110,
+                "type": None,
+                "str": "",
+                "referents": [],
+            },
         },
         "types": {},
     }
     heap = Heap(heap_dict)
+    heap.calculate_retained_heap()
     assert (
         heap.retained_heap(1) == 10 + 20 + 30 + 40 + 50 + 60 + 70 + 80 + 90 + 100 + 110
     )
@@ -123,17 +164,24 @@ def test_long_branch() -> None:
     #  \-> 7
     heap_dict = {
         "objects": {
-            "1": {"address": 1, "size": 10, "type": None, "referents": [2, 7]},
-            "2": {"address": 2, "size": 20, "type": None, "referents": [3]},
-            "3": {"address": 3, "size": 30, "type": None, "referents": [4]},
-            "4": {"address": 4, "size": 40, "type": None, "referents": [5]},
-            "5": {"address": 5, "size": 50, "type": None, "referents": [6]},
-            "6": {"address": 6, "size": 60, "type": None, "referents": []},
-            "7": {"address": 7, "size": 70, "type": None, "referents": []},
+            "1": {
+                "address": 1,
+                "size": 10,
+                "type": None,
+                "str": "",
+                "referents": [2, 7],
+            },
+            "2": {"address": 2, "size": 20, "type": None, "str": "", "referents": [3]},
+            "3": {"address": 3, "size": 30, "type": None, "str": "", "referents": [4]},
+            "4": {"address": 4, "size": 40, "type": None, "str": "", "referents": [5]},
+            "5": {"address": 5, "size": 50, "type": None, "str": "", "referents": [6]},
+            "6": {"address": 6, "size": 60, "type": None, "str": "", "referents": []},
+            "7": {"address": 7, "size": 70, "type": None, "str": "", "referents": []},
         },
         "types": {},
     }
     heap = Heap(heap_dict)
+    heap.calculate_retained_heap()
     assert heap.retained_heap(1) == 10 + 20 + 30 + 40 + 50 + 60 + 70
     assert heap.retained_heap(2) == 20 + 30 + 40 + 50 + 60
     assert heap.retained_heap(3) == 30 + 40 + 50 + 60
@@ -149,13 +197,20 @@ def test_transitive() -> None:
     #  \-> 3
     heap_dict = {
         "objects": {
-            "1": {"address": 1, "size": 10, "type": None, "referents": [2, 3]},
-            "2": {"address": 2, "size": 20, "type": None, "referents": []},
-            "3": {"address": 3, "size": 30, "type": None, "referents": [2]},
+            "1": {
+                "address": 1,
+                "size": 10,
+                "type": None,
+                "str": "",
+                "referents": [2, 3],
+            },
+            "2": {"address": 2, "size": 20, "type": None, "str": "", "referents": []},
+            "3": {"address": 3, "size": 30, "type": None, "str": "", "referents": [2]},
         },
         "types": {},
     }
     heap = Heap(heap_dict)
+    heap.calculate_retained_heap()
     assert heap.retained_heap(1) == 10 + 20 + 30
     assert heap.retained_heap(2) == 20
     assert heap.retained_heap(3) == 30
@@ -167,15 +222,16 @@ def test_side_reference() -> None:
     #                5
     heap_dict = {
         "objects": {
-            "1": {"address": 1, "size": 10, "type": None, "referents": [2]},
-            "2": {"address": 2, "size": 20, "type": None, "referents": [3]},
-            "3": {"address": 3, "size": 30, "type": None, "referents": [4]},
-            "4": {"address": 4, "size": 40, "type": None, "referents": []},
-            "5": {"address": 5, "size": 50, "type": None, "referents": [4]},
+            "1": {"address": 1, "size": 10, "type": None, "str": "", "referents": [2]},
+            "2": {"address": 2, "size": 20, "type": None, "str": "", "referents": [3]},
+            "3": {"address": 3, "size": 30, "type": None, "str": "", "referents": [4]},
+            "4": {"address": 4, "size": 40, "type": None, "str": "", "referents": []},
+            "5": {"address": 5, "size": 50, "type": None, "str": "", "referents": [4]},
         },
         "types": {},
     }
     heap = Heap(heap_dict)
+    heap.calculate_retained_heap()
     assert heap.retained_heap(1) == 10 + 20 + 30
     assert heap.retained_heap(2) == 20 + 30
     assert heap.retained_heap(3) == 30
@@ -191,14 +247,27 @@ def test_cross() -> None:
     # 3   4
     heap_dict = {
         "objects": {
-            "1": {"address": 1, "size": 10, "type": None, "referents": [3, 4]},
-            "2": {"address": 2, "size": 20, "type": None, "referents": [3, 4]},
-            "3": {"address": 3, "size": 30, "type": None, "referents": []},
-            "4": {"address": 4, "size": 40, "type": None, "referents": []},
+            "1": {
+                "address": 1,
+                "size": 10,
+                "type": None,
+                "str": "",
+                "referents": [3, 4],
+            },
+            "2": {
+                "address": 2,
+                "size": 20,
+                "type": None,
+                "str": "",
+                "referents": [3, 4],
+            },
+            "3": {"address": 3, "size": 30, "type": None, "str": "", "referents": []},
+            "4": {"address": 4, "size": 40, "type": None, "str": "", "referents": []},
         },
         "types": {},
     }
     heap = Heap(heap_dict)
+    heap.calculate_retained_heap()
     assert heap.retained_heap(1) == 10
     assert heap.retained_heap(2) == 20
     assert heap.retained_heap(3) == 30
@@ -214,17 +283,30 @@ def test_complex_1() -> None:
     #      +---------+
     heap_dict = {
         "objects": {
-            "1": {"address": 1, "size": 10, "type": None, "referents": [3]},
-            "2": {"address": 2, "size": 20, "type": None, "referents": [1, 6]},
-            "3": {"address": 3, "size": 30, "type": None, "referents": [2, 4]},
-            "4": {"address": 4, "size": 40, "type": None, "referents": [5]},
-            "5": {"address": 5, "size": 50, "type": None, "referents": [3]},
-            "6": {"address": 6, "size": 60, "type": None, "referents": [7]},
-            "7": {"address": 7, "size": 70, "type": None, "referents": []},
+            "1": {"address": 1, "size": 10, "type": None, "str": "", "referents": [3]},
+            "2": {
+                "address": 2,
+                "size": 20,
+                "type": None,
+                "str": "",
+                "referents": [1, 6],
+            },
+            "3": {
+                "address": 3,
+                "size": 30,
+                "type": None,
+                "str": "",
+                "referents": [2, 4],
+            },
+            "4": {"address": 4, "size": 40, "type": None, "str": "", "referents": [5]},
+            "5": {"address": 5, "size": 50, "type": None, "str": "", "referents": [3]},
+            "6": {"address": 6, "size": 60, "type": None, "str": "", "referents": [7]},
+            "7": {"address": 7, "size": 70, "type": None, "str": "", "referents": []},
         },
         "types": {},
     }
     heap = Heap(heap_dict)
+    heap.calculate_retained_heap()
     assert heap.retained_heap(1) == 10
     assert heap.retained_heap(2) == 20 + 10 + 60 + 70
     assert heap.retained_heap(3) == 30 + (20 + 10 + 60 + 70) + (40 + 50)
@@ -242,18 +324,37 @@ def test_complex_2() -> None:
     #         8
     heap_dict = {
         "objects": {
-            "1": {"address": 1, "size": 10, "type": None, "referents": [5, 6]},
-            "2": {"address": 2, "size": 20, "type": None, "referents": [4, 7]},
-            "3": {"address": 3, "size": 30, "type": None, "referents": [5]},
-            "4": {"address": 4, "size": 40, "type": None, "referents": [2]},
-            "5": {"address": 5, "size": 50, "type": None, "referents": [6]},
-            "6": {"address": 6, "size": 60, "type": None, "referents": [7, 8]},
-            "7": {"address": 7, "size": 70, "type": None, "referents": [5]},
-            "8": {"address": 8, "size": 80, "type": None, "referents": []},
+            "1": {
+                "address": 1,
+                "size": 10,
+                "type": None,
+                "str": "",
+                "referents": [5, 6],
+            },
+            "2": {
+                "address": 2,
+                "size": 20,
+                "type": None,
+                "str": "",
+                "referents": [4, 7],
+            },
+            "3": {"address": 3, "size": 30, "type": None, "str": "", "referents": [5]},
+            "4": {"address": 4, "size": 40, "type": None, "str": "", "referents": [2]},
+            "5": {"address": 5, "size": 50, "type": None, "str": "", "referents": [6]},
+            "6": {
+                "address": 6,
+                "size": 60,
+                "type": None,
+                "str": "",
+                "referents": [7, 8],
+            },
+            "7": {"address": 7, "size": 70, "type": None, "str": "", "referents": [5]},
+            "8": {"address": 8, "size": 80, "type": None, "str": "", "referents": []},
         },
         "types": {},
     }
     heap = Heap(heap_dict)
+    heap.calculate_retained_heap()
     assert heap.retained_heap(1) == 10
     assert heap.retained_heap(2) == 20 + 40
     assert heap.retained_heap(3) == 30
@@ -274,17 +375,30 @@ def test_complex_3() -> None:
     # +-----> 3 -> 7
     heap_dict = {
         "objects": {
-            "1": {"address": 1, "size": 10, "type": None, "referents": [2, 3]},
-            "2": {"address": 2, "size": 20, "type": None, "referents": [4, 5, 6, 7]},
-            "3": {"address": 3, "size": 30, "type": None, "referents": [7]},
-            "4": {"address": 4, "size": 40, "type": None, "referents": []},
-            "5": {"address": 5, "size": 50, "type": None, "referents": []},
-            "6": {"address": 6, "size": 60, "type": None, "referents": []},
-            "7": {"address": 7, "size": 70, "type": None, "referents": []},
+            "1": {
+                "address": 1,
+                "size": 10,
+                "type": None,
+                "str": "",
+                "referents": [2, 3],
+            },
+            "2": {
+                "address": 2,
+                "size": 20,
+                "type": None,
+                "str": "",
+                "referents": [4, 5, 6, 7],
+            },
+            "3": {"address": 3, "size": 30, "type": None, "str": "", "referents": [7]},
+            "4": {"address": 4, "size": 40, "type": None, "str": "", "referents": []},
+            "5": {"address": 5, "size": 50, "type": None, "str": "", "referents": []},
+            "6": {"address": 6, "size": 60, "type": None, "str": "", "referents": []},
+            "7": {"address": 7, "size": 70, "type": None, "str": "", "referents": []},
         },
         "types": {},
     }
     heap = Heap(heap_dict)
+    heap.calculate_retained_heap()
     assert heap.retained_heap(1) == 10 + 20 + 30 + 40 + 50 + 60 + 70
     assert heap.retained_heap(2) == 20 + 40 + 50 + 60
     assert heap.retained_heap(3) == 30
@@ -298,14 +412,15 @@ def test_forest_minimal() -> None:
     # 1  2  3  4
     heap_dict = {
         "objects": {
-            "1": {"address": 1, "size": 10, "type": None, "referents": []},
-            "2": {"address": 2, "size": 20, "type": None, "referents": []},
-            "3": {"address": 3, "size": 30, "type": None, "referents": []},
-            "4": {"address": 4, "size": 40, "type": None, "referents": []},
+            "1": {"address": 1, "size": 10, "type": None, "str": "", "referents": []},
+            "2": {"address": 2, "size": 20, "type": None, "str": "", "referents": []},
+            "3": {"address": 3, "size": 30, "type": None, "str": "", "referents": []},
+            "4": {"address": 4, "size": 40, "type": None, "str": "", "referents": []},
         },
         "types": {},
     }
     heap = Heap(heap_dict)
+    heap.calculate_retained_heap()
     assert heap.retained_heap(1) == 10
     assert heap.retained_heap(2) == 20
     assert heap.retained_heap(3) == 30
@@ -316,14 +431,15 @@ def test_forest_simple() -> None:
     # 1 -> 2  3 -> 4
     heap_dict = {
         "objects": {
-            "1": {"address": 1, "size": 10, "type": None, "referents": [2]},
-            "2": {"address": 2, "size": 20, "type": None, "referents": []},
-            "3": {"address": 3, "size": 30, "type": None, "referents": [4]},
-            "4": {"address": 4, "size": 40, "type": None, "referents": []},
+            "1": {"address": 1, "size": 10, "type": None, "str": "", "referents": [2]},
+            "2": {"address": 2, "size": 20, "type": None, "str": "", "referents": []},
+            "3": {"address": 3, "size": 30, "type": None, "str": "", "referents": [4]},
+            "4": {"address": 4, "size": 40, "type": None, "str": "", "referents": []},
         },
         "types": {},
     }
     heap = Heap(heap_dict)
+    heap.calculate_retained_heap()
     assert heap.retained_heap(1) == 10 + 20
     assert heap.retained_heap(2) == 20
     assert heap.retained_heap(3) == 30 + 40
