@@ -364,6 +364,7 @@ def retained_heap(args: argparse.Namespace) -> None:
 
 parser = argparse.ArgumentParser(description="Analyzes heap files.", allow_abbrev=False)
 subparsers = parser.add_subparsers(help="command")
+subparsers.required = True
 
 parser_retained_heap = subparsers.add_parser(
     "retained-heap", help="show retained heap statistics"
