@@ -15,6 +15,7 @@
 #
 from __future__ import annotations
 
+import abc
 import argparse
 import random
 import json
@@ -23,7 +24,8 @@ import time
 import logging
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, Dict, List, Set, Tuple
+from multiprocessing import Pool
+from typing import Any, Dict, List, Set, Tuple, Mapping, Optional
 
 Address = int
 
@@ -100,40 +102,23 @@ class InboundReferences:
         return self._inbound_references[addr]
 
 
-class RetainedHeap:
+class RetainedHeapCalculator:
     def __init__(
-        self, objects: Dict[Address, PyObject], inbound_references: InboundReferences
+        self, objects: Mapping[Address, PyObject], inbound_references: InboundReferences
     ) -> None:
         self._objects = objects
         self._inbound_references = inbound_references
         self._subtree_roots = set()
         self._retained_heap: Dict[Address, int] = {}
 
-    def calculate_for_all(self) -> None:
+    def calculate(self) -> Mapping[Address, int]:
         self._find_strict_subtrees()
+        self._calculate_for_all0()
+        return self._retained_heap
 
-        LOG.info("Calculating retained heap")
-        total = len(self._objects)
-        step_size = 10_000
-        eta = ETA(total)
-
-        addresses = list(self._objects.keys())
-        random.shuffle(addresses)
-
-        start = time.monotonic()
-        for i, addr in enumerate(addresses):
-            if i % step_size == 0 and i > 0:
-                step_duration = time.monotonic() - start
-                eta.make_step(step_size, step_duration)
-                start = time.monotonic()
-                LOG.info(
-                    "Done %r / %r, took %.2f s, ETA %.2f s",
-                    i,
-                    total,
-                    step_duration,
-                    eta.eta(),
-                )
-            self.retained_heap(addr)
+    @abc.abstractmethod
+    def _calculate_for_all0(self) -> None:
+        ...
 
     def _find_strict_subtrees(self) -> None:
         front = set()
@@ -172,10 +157,7 @@ class RetainedHeap:
 
         # TODO Check invariants
 
-    def retained_heap(self, addr: Address) -> int:
-        if addr in self._retained_heap:
-            return self._retained_heap[addr]
-
+    def _retained_heap0(self, addr: Address) -> int:
         result = 0
         deleted: Set[Address] = set()
 
@@ -196,7 +178,6 @@ class RetainedHeap:
                 break
             result += retained
 
-        self._retained_heap[addr] = result
         return result
 
     def _retained_heap_calculation_iteration(
@@ -244,8 +225,75 @@ class RetainedHeap:
             else:
                 inbound_reference_view[r].remove(current)
 
-    def __getitem__(self, addr: Address) -> int:
-        return self._retained_heap[addr]
+
+class RetainedHeapSequentialCalculator(RetainedHeapCalculator):
+    def _calculate_for_all0(self) -> None:
+        LOG.info("Calculating retained heap sequentially")
+        global_start = time.monotonic()
+
+        total = len(self._objects)
+        step_size = 10_000
+        eta = ETA(total)
+
+        addresses = list(self._objects.keys())
+        random.shuffle(addresses)
+
+        start = time.monotonic()
+        for i, addr in enumerate(addresses):
+            if i % step_size == 0 and i > 0:
+                step_duration = time.monotonic() - start
+                eta.make_step(step_size, step_duration)
+                start = time.monotonic()
+                LOG.info(
+                    "Done %r / %r, took %.2f s, ETA %.2f s",
+                    i,
+                    total,
+                    step_duration,
+                    eta.eta(),
+                )
+            self._retained_heap[addr] = self._retained_heap0(addr)
+
+        LOG.info(
+            "Calculating retained heap done, took %.2f s",
+            time.monotonic() - global_start,
+        )
+
+
+class RetainedHeapParallelCalculator(RetainedHeapCalculator):
+    def _calculate_for_all0(self) -> None:
+        LOG.info("Calculating retained heap in parallel")
+        global_start = time.monotonic()
+
+        addresses = list(self._objects.keys())
+        total = len(addresses)
+        random.shuffle(addresses)
+        chunk_size = 10_000
+        eta = ETA(total)
+
+        with Pool() as pool:
+            r = pool.imap_unordered(self._work, addresses, chunksize=chunk_size)
+            start = time.monotonic()
+            for i, (addr, retained_heap_size) in enumerate(r):
+                if i % chunk_size == 0 and i > 0:
+                    step_duration = time.monotonic() - start
+                    eta.make_step(chunk_size, step_duration)
+                    start = time.monotonic()
+                    LOG.info(
+                        "Done %r / %r, took %.2f s, ETA %.2f s",
+                        i,
+                        total,
+                        step_duration,
+                        eta.eta(),
+                    )
+                self._retained_heap[addr] = retained_heap_size
+
+        LOG.info(
+            "Calculating retained heap done, took %.2f s",
+            time.monotonic() - global_start,
+        )
+
+    def _work(self, addr: Address) -> Tuple[Address, int]:
+        return addr, self._retained_heap0(addr)
 
 
 class Heap:
@@ -268,13 +316,22 @@ class Heap:
             int(addr): obj for addr, obj in heap_dict["types"].items()
         }
         self._inbound_references = InboundReferences(self._objects)
-        self._retained_heap = RetainedHeap(self._objects, self._inbound_references)
+        self._retained_heap: Optional[Mapping[Address, int]] = None
 
     def calculate_retained_heap(self) -> None:
-        self._retained_heap.calculate_for_all()
+        parallel = True
+        if parallel:
+            calculator = RetainedHeapParallelCalculator(
+                self._objects, self._inbound_references
+            )
+        else:
+            calculator = RetainedHeapSequentialCalculator(
+                self._objects, self._inbound_references
+            )
+        self._retained_heap = calculator.calculate()
 
     def retained_heap(self, addr: Address) -> int:
-        return self._retained_heap.retained_heap(addr)
+        return self._retained_heap[addr]
 
     def objects_sorted_by_retained_heap(self) -> List[Tuple[PyObject, int]]:
         addrs = [(o, self._retained_heap[o.address]) for o in self._objects.values()]
