@@ -299,6 +299,8 @@ class RetainedHeapParallelCalculator(RetainedHeapCalculator):
 
 class Heap:
     def __init__(self, heap_dict: Dict[str, Any]) -> None:
+        LOG.info("Heap dump contains %d objects", len(heap_dict["objects"]))
+
         # Filter unknown objects from referents.
         filtered_objects = 0
         for obj in heap_dict["objects"].values():
