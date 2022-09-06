@@ -15,6 +15,7 @@
 #
 from __future__ import annotations
 import gc
+import gzip
 import json
 import sys
 import time
@@ -33,7 +34,7 @@ class _PyObject(NamedTuple):
 def dump_heap(heap_file: str) -> str:
     try:
         return _dump_heap0(heap_file)
-    except Exception:
+    except:
         import traceback
 
         print(traceback.format_exc())
@@ -45,12 +46,13 @@ def _dump_heap0(heap_file: str) -> str:
     visited = 0
     all_objects = _all_objects()
 
-    with open(heap_file, "w") as f:
-        f.write("{\n")
+    open_func = gzip.open if heap_file.endswith(".gz") else open
+    with open_func(heap_file, "wb") as f:
+        f.write("{\n".encode("utf-8"))
 
         types = {}
 
-        f.write('  "objects": {\n')
+        f.write('  "objects": {\n'.encode("utf-8"))
         first_iteration = True
         for obj, referents in all_objects:
             visited += 1
@@ -59,7 +61,7 @@ def _dump_heap0(heap_file: str) -> str:
             types[str(id(type_))] = type_.__name__
 
             if not first_iteration:
-                f.write(",\n")
+                f.write(",\n".encode("utf-8"))
             else:
                 first_iteration = False
 
@@ -74,14 +76,14 @@ def _dump_heap0(heap_file: str) -> str:
                 "str": str_,
                 "referents": [id(r) for r in referents],
             }
-            f.write(f'    "{id(obj)}": ')
-            f.write(json.dumps(obj_dict))
-        f.write("  \n},\n")
+            f.write(f'    "{id(obj)}": '.encode("utf-8"))
+            f.write(json.dumps(obj_dict).encode("utf-8"))
+        f.write("  \n},\n".encode("utf-8"))
 
-        f.write('  "types": ')
-        f.write(json.dumps(types, indent=2))
+        f.write('  "types": '.encode("utf-8"))
+        f.write(json.dumps(types, indent=2).encode("utf-8"))
 
-        f.write("\n}")
+        f.write("\n}".encode("utf-8"))
 
     return f"Heap dumped to {heap_file}. Visited {visited} objects. Took {(time.monotonic() - start):.3f} seconds."
 

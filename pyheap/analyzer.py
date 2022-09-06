@@ -19,6 +19,7 @@ import abc
 import argparse
 import random
 import json
+import gzip
 import sys
 import time
 import logging
@@ -346,7 +347,8 @@ class Heap:
 def retained_heap(args: argparse.Namespace) -> None:
     start = time.monotonic()
     LOG.info("Loading file %s", args.file)
-    with open(args.file, "r") as f:
+    open_func = gzip.open if args.file.endswith(".gz") else open
+    with open_func(args.file, "r") as f:
         heap_dict = json.load(f)
     LOG.info("Loading file finished in %.2f seconds", time.monotonic() - start)
     heap = Heap(heap_dict)
