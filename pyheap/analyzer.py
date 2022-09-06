@@ -20,6 +20,7 @@ import argparse
 import random
 import json
 import gzip
+import shutil
 import sys
 import time
 import logging
@@ -356,10 +357,17 @@ def retained_heap(args: argparse.Namespace) -> None:
     heap = Heap(heap_dict)
     heap.calculate_retained_heap()
 
-    row_format = "{:<15}   {:<15} {:>18}   {:<100}"
+    terminal_columns, _ = shutil.get_terminal_size()
+    before_str_repr = "{:<15}   {:<15} {:>18}   "
+    room_for_str = terminal_columns - len(before_str_repr.format("", "", ""))
+    row_format = before_str_repr + "{:<" + str(room_for_str) + "}"
     print(row_format.format("Address", "Object type", "Retained heap size", "str"))
     for obj, retained_heap in heap.objects_sorted_by_retained_heap()[: args.top_n]:
-        print(row_format.format(obj.address, obj.type, retained_heap, obj.str_[:100]))
+        print(
+            row_format.format(
+                obj.address, obj.type, retained_heap, obj.str_[:room_for_str]
+            )
+        )
 
     print(f"Total heap size: {heap.total_heap_size} bytes")
 
