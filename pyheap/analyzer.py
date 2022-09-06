@@ -358,10 +358,15 @@ def retained_heap(args: argparse.Namespace) -> None:
     heap.calculate_retained_heap()
 
     terminal_columns, _ = shutil.get_terminal_size()
-    before_str_repr = "{:<15}   {:<15} {:>18}   "
+    before_str_repr = "{:<15} | {:<15} | {:>18} | "
     room_for_str = terminal_columns - len(before_str_repr.format("", "", ""))
     row_format = before_str_repr + "{:<" + str(room_for_str) + "}"
-    print(row_format.format("Address", "Object type", "Retained heap size", "str"))
+    print(
+        row_format.format(
+            "Address", "Object type", "Retained heap size", "String representation"
+        )
+    )
+    print("-" * terminal_columns)
     for obj, retained_heap in heap.objects_sorted_by_retained_heap()[: args.top_n]:
         print(
             row_format.format(
