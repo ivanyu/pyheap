@@ -69,6 +69,37 @@ class ETA:
         return avg_duration * max(0, self._remain)
 
 
+class InboundReferences:
+    def __init__(self, objects: Dict[Address, PyObject]) -> None:
+        self._inbound_references = self._index_inbound_references(objects)
+
+    @staticmethod
+    def _index_inbound_references(
+        objects: Dict[Address, PyObject]
+    ) -> Dict[Address, Set[Address]]:
+        LOG.info("Indexing inbound references")
+        start = time.monotonic()
+
+        result: Dict[int, Set[int]] = {}
+
+        for obj in objects.values():
+            obj_address = obj.address
+            if obj_address not in result:
+                result[obj_address] = set()
+
+            for referent_addr in obj.referents:
+                if referent_addr not in result:
+                    result[referent_addr] = set()
+                if obj_address not in result[referent_addr]:
+                    result[referent_addr].add(obj_address)
+
+        LOG.info("Inbound references indexed in %.2f seconds", time.monotonic() - start)
+        return result
+
+    def __getitem__(self, addr: Address) -> Set[Address]:
+        return self._inbound_references[addr]
+
+
 class Heap:
     def __init__(self, heap_dict: Dict[str, Any]) -> None:
         # Filter unknown objects from referents.
@@ -88,30 +119,10 @@ class Heap:
         self._types: Dict[Address, str] = {
             int(addr): obj for addr, obj in heap_dict["types"].items()
         }
-        self._inbound_references = self._build_inbound_references()
+        self._inbound_references = InboundReferences(self._objects)
 
         self._retained_heap: Dict[Address, int] = {}
         self._subtree_roots = set()
-
-    def _build_inbound_references(self) -> Dict[Address, Set[Address]]:
-        start = time.monotonic()
-        LOG.info("Indexing inbound references")
-
-        result: Dict[int, Set[int]] = {}
-
-        for obj in self._objects.values():
-            obj_address = obj.address
-            if obj_address not in result:
-                result[obj_address] = set()
-
-            for referent_addr in obj.referents:
-                if referent_addr not in result:
-                    result[referent_addr] = set()
-                if obj_address not in result[referent_addr]:
-                    result[referent_addr].add(obj_address)
-
-        LOG.info("Inbound references indexed in %.2f seconds", time.monotonic() - start)
-        return result
 
     def calculate_retained_heap(self) -> None:
         self._find_strict_subtrees()
