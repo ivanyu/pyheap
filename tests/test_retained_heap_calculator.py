@@ -13,10 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from typing import Callable
-
 import pytest
-
+from typing import Callable
 from pyheap.analyzer import (
     Heap,
     RetainedHeapParallelCalculator,
@@ -547,3 +545,21 @@ def test_forest_simple(
     assert heap.retained_heap(2) == 20
     assert heap.retained_heap(3) == 30 + 40
     assert heap.retained_heap(4) == 40
+
+
+def test_calculators_equivalent() -> None:
+    objects = {
+        str(i): {"address": i, "size": 20, "type": None, "str": "", "referents": []}
+        for i in range(20_000)
+    }
+    for i in range(20_000):
+        if i % 3 == 0:
+            objects[str(i)]["referents"] = [i + 1]
+    heap_dict = {
+        "objects": objects,
+        "types": {},
+    }
+    heap = Heap(heap_dict)
+    sequential_calculator = RetainedHeapSequentialCalculator(heap)
+    parallel_calculator = RetainedHeapParallelCalculator(heap)
+    assert parallel_calculator.calculate() == sequential_calculator.calculate()
