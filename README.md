@@ -14,6 +14,35 @@ $ ./dump-heap.sh <pid> $(realpath .)/heap.json.gz
 Analyze the heap with the `analyzer` module:
 ```bash
 $ python3 -m pyheap.analyzer retained-heap --file heap.json.gz
+
+[2022-09-07 09:40:46,594] INFO Loading file heap.json.gz
+[2022-09-07 09:40:46,633] INFO Loading file finished in 0.04 seconds
+[2022-09-07 09:40:46,633] INFO Heap dump contains 18269 objects
+[2022-09-07 09:40:46,646] INFO 1761 unknown objects filtered
+[2022-09-07 09:40:46,681] INFO Indexing inbound references
+[2022-09-07 09:40:46,695] INFO Inbound references indexed in 0.01 seconds
+[2022-09-07 09:40:46,701] INFO Loaded retained heap cache
+  heap.json.gz.ce7ade900911c6edac5fe332a36d43d0a76ac103.retained_heap
+Address         | Object type     | Retained heap size | String representation  
+--------------------------------------------------------------------------------
+140494124474176 | dict            |            1101494 | {'__name__': '__main__'
+140494121988112 | str             |            1000049 | xxxxxxxxxxxxxxxxxxxxxxx
+140494125217792 | list            |             100113 | ['xxxxxxxxxxxxxxxxxxxxx
+94613255597520  | str             |             100049 | xxxxxxxxxxxxxxxxxxxxxxx
+140494126265024 | dict            |              89546 | {'/usr/lib/python310.zi
+140494124519104 | dict            |              70465 | {'__name__': 'os', '__d
+140494123404608 | dict            |              64157 | {'__name__': 'typing', 
+140494126265984 | dict            |              35508 | {'__name__': 'builtins'
+140494125686720 | dict            |              32920 | {94613227788704: <weakr
+94613255487824  | ABCMeta         |              32790 | <class 'collections.Use
+140494125072000 | dict            |              31566 | {'__module__': 'collect
+140494124621856 | _Printer        |              28111 | Type license() to see t
+140494124550272 | dict            |              28063 | {'_Printer__name': 'lic
+140494105358656 | list            |              27229 | ['A. HISTORY OF THE SOF
+140494125744640 | frozenset       |              25447 | frozenset({'_curses', '
+140494124629056 | FileFinder      |              22804 | FileFinder('/usr/lib/py
+140494124679104 | dict            |              22756 | {'_loaders': [('.cpytho
+...
 ```
 (in the repo root directory).
 
