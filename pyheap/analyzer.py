@@ -28,7 +28,7 @@ import logging
 from dataclasses import dataclass
 from functools import cached_property
 from multiprocessing import Pool
-from typing import Any, Dict, List, Set, Tuple, Mapping, Optional
+from typing import Any, Dict, List, Set, Tuple, Mapping, Optional, Collection
 
 LOG = logging.getLogger()
 LOG.setLevel(logging.DEBUG)
@@ -39,7 +39,45 @@ handler.setFormatter(formatter)
 LOG.addHandler(handler)
 
 Address = int
-RetainedHeap = Mapping[Address, int]
+ThreadName = str
+JsonObject = Mapping[str, Any]
+
+
+class RetainedHeap:
+    def __init__(
+        self,
+        *,
+        object_retained_heap: Mapping[Address, int],
+        thread_retained_heap: Mapping[ThreadName, int],
+    ) -> None:
+        self._object_retained_heap = object_retained_heap
+        self._thread_retained_heap = thread_retained_heap
+
+    def get_for_object(self, addr: Address) -> int:
+        return self._object_retained_heap[addr]
+
+    def get_for_thread(self, thread_name: ThreadName) -> int:
+        return self._thread_retained_heap[thread_name]
+
+    @staticmethod
+    def load(dict_: JsonObject) -> RetainedHeap:
+        return RetainedHeap(
+            object_retained_heap={int(k): v for k, v in dict_["objects"].items()},
+            thread_retained_heap=dict(dict_["threads"]),
+        )
+
+    def dump(self) -> JsonObject:
+        result = {
+            "objects": self._object_retained_heap,
+            "threads": self._thread_retained_heap,
+        }
+        return result
+
+    # Needed for testing
+    def __eq__(self, o: object) -> bool:
+        if not isinstance(o, RetainedHeap):
+            return False
+        return self._object_retained_heap == o._object_retained_heap
 
 
 @dataclass
@@ -108,18 +146,24 @@ class InboundReferences:
 
 class RetainedHeapCalculator:
     def __init__(self, heap: Heap) -> None:
+        self._calculated = False
         self._heap = heap
         self._subtree_roots = set()
-        self._retained_heap: Dict[Address, int] = {}
+        self._object_retained_heap: Dict[Address, int] = {}
+        self._thread_retained_heap: Dict[ThreadName, int] = {}
 
-    def calculate(self) -> Mapping[Address, int]:
+    def calculate(self) -> RetainedHeap:
+        if self._calculated:
+            raise ValueError("Retained heap is already calculated")
+
         self._find_strict_subtrees()
-        self._calculate_for_all0()
-        return self._retained_heap
-
-    @abc.abstractmethod
-    def _calculate_for_all0(self) -> None:
-        ...
+        self._calculate_for_all_objects()
+        self._calculate_for_all_threads()
+        self._calculated = True
+        return RetainedHeap(
+            object_retained_heap=self._object_retained_heap,
+            thread_retained_heap=self._thread_retained_heap,
+        )
 
     def _find_strict_subtrees(self) -> None:
         front = set()
@@ -129,7 +173,7 @@ class RetainedHeapCalculator:
                 and len(self._heap.inbound_references[obj.address]) < 2
             ):
                 self._subtree_roots.add(obj.address)
-                self._retained_heap[obj.address] = obj.size
+                self._object_retained_heap[obj.address] = obj.size
                 front.update(self._heap.inbound_references[obj.address])
 
         next_front = set()
@@ -145,8 +189,8 @@ class RetainedHeapCalculator:
                     continue
 
                 self._subtree_roots.add(obj.address)
-                self._retained_heap[obj.address] = obj.size + sum(
-                    self._retained_heap[r] for r in obj.referents
+                self._object_retained_heap[obj.address] = obj.size + sum(
+                    self._object_retained_heap[r] for r in obj.referents
                 )
                 next_front.update(self._heap.inbound_references[obj.address])
 
@@ -158,21 +202,33 @@ class RetainedHeapCalculator:
 
         # TODO Check invariants
 
-    def _retained_heap0(self, addr: Address) -> int:
+    @abc.abstractmethod
+    def _calculate_for_all_objects(self) -> None:
+        ...
+
+    def _calculate_for_all_threads(self) -> None:
+        LOG.info("Calculating retained heap for threads sequentially")
+        for thread_name, thread_obj in self._heap.threads.items():
+            self._thread_retained_heap[thread_name] = self._retained_heap0(
+                addrs=thread_obj.locals, use_subtrees=False
+            )
+
+    def _retained_heap0(self, *, addrs: Collection[Address], use_subtrees: bool) -> int:
         result = 0
         deleted: Set[Address] = set()
 
         inbound_reference_view: Dict[Address, Set[Address]] = {}
-        # Imitate deletion of the initial address.
-        inbound_reference_view[addr] = set()
+        # Imitate deletion of the initial addresses.
+        for a in addrs:
+            inbound_reference_view[a] = set()
 
-        front = [addr]
+        front = list(addrs)
 
         while True:
             front.sort(key=lambda x: len(inbound_reference_view[x]), reverse=True)
 
             retained, deletion_happened = self._retained_heap_calculation_iteration(
-                front, inbound_reference_view, deleted
+                front, inbound_reference_view, deleted, use_subtrees
             )
             if not deletion_happened:
                 assert retained == 0
@@ -186,6 +242,7 @@ class RetainedHeapCalculator:
         front: List[Address],
         inbound_reference_view: Dict[Address, Set[Address]],
         deleted: Set[Address],
+        use_subtrees: bool,
     ) -> Tuple[int, bool]:
         retained = 0
         deletion_happened = False
@@ -201,8 +258,8 @@ class RetainedHeapCalculator:
             deleted.add(current)
             deletion_happened = True
 
-            if current in self._subtree_roots:
-                retained += self._retained_heap[current]
+            if use_subtrees and current in self._subtree_roots:
+                retained += self._object_retained_heap[current]
             else:
                 retained += self._heap.objects[current].size
                 to_be_added_to_front = self._heap.objects[current].referents - deleted
@@ -224,12 +281,19 @@ class RetainedHeapCalculator:
             if r not in inbound_reference_view:
                 inbound_reference_view[r] = self._heap.inbound_references[r] - deleted
             else:
-                inbound_reference_view[r].remove(current)
+                # This extra check is not masking some mistake in the retained heap algorithm.
+                # Normally we "delete" only one root object. It refers to some other objects,
+                # which don't have the inbound reference view defined yet. They are processed
+                # by the other branch of this if-else. In this case, the check is not needed.
+                # However, when we calculate a thread's retained heap, we "delete" multiple root objects,
+                # which may refer to one another. Hence, this extra check.
+                if current in inbound_reference_view[r]:
+                    inbound_reference_view[r].remove(current)
 
 
 class RetainedHeapSequentialCalculator(RetainedHeapCalculator):
-    def _calculate_for_all0(self) -> None:
-        LOG.info("Calculating retained heap sequentially")
+    def _calculate_for_all_objects(self) -> None:
+        LOG.info("Calculating retained heap for objects sequentially")
         global_start = time.monotonic()
 
         total = len(self._heap.objects)
@@ -252,7 +316,9 @@ class RetainedHeapSequentialCalculator(RetainedHeapCalculator):
                     step_duration,
                     eta.eta(),
                 )
-            self._retained_heap[addr] = self._retained_heap0(addr)
+            self._object_retained_heap[addr] = self._retained_heap0(
+                addrs=[addr], use_subtrees=True
+            )
 
         LOG.info(
             "Calculating retained heap done, took %.2f s",
@@ -261,8 +327,8 @@ class RetainedHeapSequentialCalculator(RetainedHeapCalculator):
 
 
 class RetainedHeapParallelCalculator(RetainedHeapCalculator):
-    def _calculate_for_all0(self) -> None:
-        LOG.info("Calculating retained heap in parallel")
+    def _calculate_for_all_objects(self) -> None:
+        LOG.info("Calculating retained heap for objects in parallel")
         global_start = time.monotonic()
 
         addresses = list(self._heap.objects.keys())
@@ -286,7 +352,7 @@ class RetainedHeapParallelCalculator(RetainedHeapCalculator):
                         step_duration,
                         eta.eta(),
                     )
-                self._retained_heap[addr] = retained_heap_size
+                self._object_retained_heap[addr] = retained_heap_size
 
         LOG.info(
             "Calculating retained heap done, took %.2f s",
@@ -294,10 +360,12 @@ class RetainedHeapParallelCalculator(RetainedHeapCalculator):
         )
 
     def _work(self, addr: Address) -> Tuple[Address, int]:
-        return addr, self._retained_heap0(addr)
+        return addr, self._retained_heap0(addrs=[addr], use_subtrees=False)
 
 
 class RetainedHeapCache:
+    VERSION = 1  # change when the algorithm changes
+
     def __init__(self, heap_file_name: str) -> None:
         self._file_name = heap_file_name
 
@@ -306,26 +374,73 @@ class RetainedHeapCache:
             with open(self._cache_file_name, "r") as f:
                 cache_content = json.load(f)
             LOG.info("Loaded retained heap cache %s", self._cache_file_name)
-            return {int(k): v for k, v in cache_content.items()}
+            return RetainedHeap.load(cache_content)
         except FileNotFoundError:
             LOG.info("Retained heap cache %s doesn't exist", self._cache_file_name)
             return None
 
     def store(self, retained_heap: RetainedHeap) -> None:
         with open(self._cache_file_name, "w") as f:
-            json.dump(retained_heap, f)
+            json.dump(retained_heap.dump(), f)
         LOG.info("Saved retained heap to cache %s", self._cache_file_name)
 
     @property
     def _cache_file_name(self) -> str:
         with open(self._file_name, "rb") as f:
-            digest = hashlib.sha1((f.read())).hexdigest()
-        return f"{self._file_name}.{digest}.retained_heap"
+            digest = hashlib.sha1(f.read()).hexdigest()
+        return f"{self._file_name}.{digest}.{self.VERSION}.retained_heap"
+
+
+@dataclass
+class Frame:
+    file: str
+    lineno: int
+    name: str
+    locals: Dict[str, Address]
+
+    @staticmethod
+    def from_dict(frame_dict: JsonObject) -> Frame:
+        return Frame(
+            file=frame_dict["file"],
+            lineno=frame_dict["lineno"],
+            name=frame_dict["name"],
+            locals=frame_dict["locals"],
+        )
+
+
+@dataclass
+class PyThread:
+    thread_name: ThreadName
+    alive: bool
+    daemon: bool
+    stack_trace: List[Frame]
+
+    @property
+    def locals(self) -> Set[Address]:
+        result = set()
+        for frame in self.stack_trace:
+            result.update(frame.locals.values())
+        return result
+
+    @staticmethod
+    def from_dict(thread_dict: JsonObject) -> PyThread:
+        return PyThread(
+            thread_name=thread_dict["thread_name"],
+            alive=thread_dict["alive"],
+            daemon=thread_dict["daemon"],
+            stack_trace=[Frame.from_dict(d) for d in thread_dict["stack_trace"]],
+        )
 
 
 class Heap:
-    def __init__(self, heap_dict: Dict[str, Any]) -> None:
+    def __init__(self, heap_dict: JsonObject) -> None:
         LOG.info("Heap dump contains %d objects", len(heap_dict["objects"]))
+        LOG.info("Heap dump contains %d threads", len(heap_dict.get("threads", [])))
+
+        self._threads: Dict[ThreadName, PyThread] = {}
+        for d in heap_dict.get("threads", []):
+            thread_obj = PyThread.from_dict(d)
+            self._threads[thread_obj.thread_name] = thread_obj
 
         # Filter unknown objects from referents.
         filtered_objects = 0
@@ -348,6 +463,10 @@ class Heap:
         self._retained_heap: Optional[RetainedHeap] = None
 
     @property
+    def threads(self) -> Mapping[ThreadName, PyThread]:
+        return self._threads
+
+    @property
     def objects(self) -> Mapping[Address, PyObject]:
         return self._objects
 
@@ -358,11 +477,17 @@ class Heap:
     def set_retained_heap(self, retained_heap: RetainedHeap) -> None:
         self._retained_heap = retained_heap
 
-    def retained_heap(self, addr: Address) -> int:
-        return self._retained_heap[addr]
+    def object_retained_heap(self, addr: Address) -> int:
+        return self._retained_heap.get_for_object(addr)
+
+    def thread_retained_heap(self, thread_name: ThreadName) -> int:
+        return self._retained_heap.get_for_thread(thread_name)
 
     def objects_sorted_by_retained_heap(self) -> List[Tuple[PyObject, int]]:
-        addrs = [(o, self._retained_heap[o.address]) for o in self._objects.values()]
+        addrs = [
+            (o, self._retained_heap.get_for_object(o.address))
+            for o in self._objects.values()
+        ]
         addrs.sort(key=lambda x: x[1], reverse=True)
         return addrs
 

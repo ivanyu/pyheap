@@ -21,7 +21,7 @@ from dataclasses import dataclass
 import pytest
 from pathlib import Path
 
-from pyheap.analyzer import RetainedHeapCache
+from pyheap.analyzer import RetainedHeapCache, RetainedHeap
 
 
 @dataclass
@@ -69,30 +69,42 @@ def test_cache_not_exist(heap_file: HeapFile) -> None:
 
 
 def test_store(heap_file: HeapFile) -> None:
-    retained_heap = {111111: 42}
+    retained_heap = RetainedHeap(
+        object_retained_heap={111111: 42}, thread_retained_heap={"main": 100500}
+    )
 
     cache = RetainedHeapCache(heap_file.file_name)
     cache.store(retained_heap)
 
-    cache_file = f"{heap_file.file_name}.{heap_file.digest}.retained_heap"
+    cache_file = f"{heap_file.file_name}.{heap_file.digest}.{RetainedHeapCache.VERSION}.retained_heap"
     with open(cache_file, "r") as f:
         cache_content = json.load(f)
-    assert cache_content == {"111111": 42}
+    assert cache_content == {"objects": {"111111": 42}, "threads": {"main": 100500}}
 
 
 def test_load(heap_file: HeapFile) -> None:
-    retained_heap = {111111: 42}
+    object_retained_heap = {111111: 42}
+    thread_retained_heap = {"main": 100500}
+    retained_heap = RetainedHeap(
+        object_retained_heap=object_retained_heap,
+        thread_retained_heap=thread_retained_heap,
+    )
 
-    cache_file = f"{heap_file.file_name}.{heap_file.digest}.retained_heap"
+    cache_file = f"{heap_file.file_name}.{heap_file.digest}.{RetainedHeapCache.VERSION}.retained_heap"
     with open(cache_file, "w") as f:
-        json.dump(retained_heap, f)
+        json.dump({"objects": object_retained_heap, "threads": thread_retained_heap}, f)
 
     cache = RetainedHeapCache(heap_file.file_name)
     assert cache.load_if_cache_exists() == retained_heap
 
 
 def test_store_and_load(heap_file: HeapFile) -> None:
-    retained_heap = {111111: 42}
+    object_retained_heap = {111111: 42}
+    thread_retained_heap = {"main": 100500}
+    retained_heap = RetainedHeap(
+        object_retained_heap=object_retained_heap,
+        thread_retained_heap=thread_retained_heap,
+    )
 
     cache = RetainedHeapCache(heap_file.file_name)
     cache.store(retained_heap)
