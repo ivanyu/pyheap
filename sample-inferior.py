@@ -32,7 +32,7 @@ class MyThread(Thread):
 
     def run(self) -> None:
         while True:
-            self._x({"aaa"}, 222)
+            self._x({"local-1"}, "local-2")
 
 
 MyThread().start()
@@ -45,4 +45,4 @@ def f(a, b):
 
 
 while True:
-    f(["xxxx"], 123)
+    f(["local-3"], "local-4")
