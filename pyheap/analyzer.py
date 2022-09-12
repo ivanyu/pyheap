@@ -484,12 +484,20 @@ class Heap:
         return self._retained_heap.get_for_thread(thread_name)
 
     def objects_sorted_by_retained_heap(self) -> List[Tuple[PyObject, int]]:
-        addrs = [
+        result = [
             (o, self._retained_heap.get_for_object(o.address))
             for o in self._objects.values()
         ]
-        addrs.sort(key=lambda x: x[1], reverse=True)
-        return addrs
+        result.sort(key=lambda x: x[1], reverse=True)
+        return result
+
+    def threads_sorted_by_retained_heap(self) -> List[Tuple[ThreadName, int]]:
+        result = [
+            (thread_name, self._retained_heap.get_for_thread(thread_name))
+            for thread_name in self._threads.keys()
+        ]
+        result.sort(key=lambda x: x[1], reverse=True)
+        return result
 
     @cached_property
     def total_heap_size(self) -> int:
@@ -508,6 +516,8 @@ def retained_heap(args: argparse.Namespace) -> None:
     heap.set_retained_heap(provide_retained_heap_with_caching(args.file, heap))
 
     terminal_columns, _ = shutil.get_terminal_size()
+
+    print("Retained heap for objects:")
     before_str_repr = "{:<15} | {:<15} | {:>18} | "
     room_for_str = terminal_columns - len(before_str_repr.format("", "", ""))
     row_format = before_str_repr + "{:<" + str(room_for_str) + "}"
@@ -524,6 +534,15 @@ def retained_heap(args: argparse.Namespace) -> None:
             )
         )
 
+    print()
+    print("Retained heap for threads:")
+    row_format = "{:<50} | {:>18}"
+    print(row_format.format("Thread", "Retained heap size"))
+    print("-" * 71)
+    for thread_name, retained_heap in heap.threads_sorted_by_retained_heap():
+        print(row_format.format(thread_name, retained_heap))
+
+    print()
     print(f"Total heap size: {heap.total_heap_size} bytes")
 
 
