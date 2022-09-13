@@ -63,7 +63,7 @@ def test_dumper(tmp_path: Path) -> None:
         {
             "type": "str",
             "size": 87,
-            "str": str(Path(__file__).parent.parent / "pyheap"),
+            "str": str(Path(__file__).parent.parent.parent / "pyheap"),
             "referents": [],
         },
     )
