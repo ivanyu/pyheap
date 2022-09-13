@@ -109,7 +109,6 @@ def _get_gc_tracked_objects() -> List[Any]:
     invisible_objects.add(id(sys.modules["dumper"]))
     invisible_objects.add(id(sys.modules["dumper"].__name__))
     invisible_objects.add(id(sys.modules["dumper"].__dict__))
-    invisible_objects.add(id(sys.modules["dumper"].__annotations__))
     invisible_objects.add(id(sys.modules["dumper"].__doc__))
     invisible_objects.add(id(sys.modules["dumper"].__loader__))
     invisible_objects.add(id(sys.modules["dumper"].__spec__))
