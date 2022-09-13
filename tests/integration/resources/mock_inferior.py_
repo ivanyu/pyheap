@@ -47,7 +47,7 @@ some_tuple = ("a", "b", "c")
 
 
 def function3(a: int) -> None:
-    dumper_dir = str(Path(__file__).parent.parent.parent / "pyheap")
+    dumper_dir = str(Path(__file__).parent.parent.parent.parent / "pyheap")
     sys.path.insert(1, dumper_dir)
     import dumper
 

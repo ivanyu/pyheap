@@ -63,7 +63,7 @@ def test_dumper(tmp_path: Path) -> None:
         {
             "type": "str",
             "size": 87,
-            "str": str(Path(__file__).parent.parent / "pyheap"),
+            "str": str(Path(__file__).parent.parent.parent / "pyheap"),
             "referents": [],
         },
     )
@@ -144,7 +144,7 @@ def test_dumper(tmp_path: Path) -> None:
     obj = _get_object(heap, frame["locals"]["some_list"])
     assert obj["address"] == frame["locals"]["some_list"]
     assert obj["type"] == "list"
-    assert obj["size"] == 120
+    assert obj["size"] in {120, 88}  # depends on Python minor version
     assert obj["str"] == "[1, 2, 3]"
     assert {_get_object(heap, r)["str"] for r in obj["referents"]} == {"1", "2", "3"}
 
@@ -218,7 +218,6 @@ def test_dumper(tmp_path: Path) -> None:
         "property",
         "classmethod",
         "staticmethod",
-        "weakref",
         "MyThread",
     }
     for t in expected_types:
