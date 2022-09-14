@@ -2,6 +2,17 @@
 
 A heap dumper and analyzer for CPython based on GDB.
 
+## Compatibility
+
+The dumper was tested with CPython 3.9 and 3.10.
+
+Some popular libraries were tested:
+- Django;
+- FastAPI;
+- Flask;
+- SQLAlchemy
+- Jupyter.
+
 ## Usage
 
 Find the PID of a running CPython process you're interested in.
