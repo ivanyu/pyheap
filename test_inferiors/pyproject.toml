@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "test-inferiors"
+version = "0.1.0"
+description = ""
+authors = ["Ivan Yurchenko <ivan@ivanyu.me>"]
+readme = "README.md"
+packages = [{include = "test_inferiors"}]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+flask = "2.2.2"
+Django = "4.1.1"
+fastapi = "0.83.0"
+uvicorn = {extras = ["standard"], version = "^0.18.3"}
+SQLAlchemy = "^1.4.41"
+jupyterlab = "^3.4.7"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
