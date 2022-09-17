@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import abc
+import dataclasses
 import hashlib
 import json
 import logging
@@ -94,6 +95,13 @@ class PyObject:
             str_=obj_dict["str"],
             referents=set(obj_dict["referents"]),
         )
+
+    def to_json(self) -> JsonObject:
+        r = dataclasses.asdict(self)
+        r["referents"] = list(r["referents"])
+        r["str"] = r["str_"]
+        del r["str_"]
+        return r
 
 
 class ETA:

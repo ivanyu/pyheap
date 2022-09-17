@@ -1,0 +1,93 @@
+<!--
+  Copyright 2022 Ivan Yurchenko
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+{% extends 'base.html' %}
+
+{% block style %}
+<style>
+</style>
+{% endblock %}
+
+{% block content %}
+
+{% macro render_pagination() -%}
+<nav aria-label="Page navigation example">
+    <ul class="pagination">
+        {% if pagination.prev_enabled %}
+        <li class="page-item"><a class="page-link" href="/heap?page={{ pagination.page - 1 }}">Previous</a></li>
+        {% else %}
+        <li class="page-item disabled"><a class="page-link">Previous</a></li>
+        {% endif %}
+
+        {% for p in pagination.layout %}
+            {% if p is none %}
+            <li class="page-item disabled"><a class="page-link">...</a></li>
+            {% elif p == pagination.page %}
+            <li class="page-item active"><a class="page-link" href="/heap?page={{ p }}">{{ p }}</a></li>
+            {% else %}
+            <li class="page-item"><a class="page-link" href="/heap?page={{ p }}">{{ p }}</a></li>
+            {% endif %}
+        {% endfor %}
+
+        {% if pagination.next_enabled %}
+        <li class="page-item"><a class="page-link" href="/heap?page={{ pagination.page + 1 }}">Next</a></li>
+        {% else %}
+        <li class="page-item disabled"><a class="page-link">Next</a></li>
+        {% endif %}
+    </ul>
+</nav>
+{%- endmacro %}
+
+<div id="heap-panel">
+    <div>
+        <p><strong>Total heap size:</strong> {{ total_heap_size }} B</p>
+        <p><strong>Objects:</strong> {{ object_count }}</p>
+    </div>
+
+    {{ render_pagination() }}
+
+    <div id="table-pagination"></div>
+    <table class="table table-hover">
+        <thead class="">
+        <tr>
+            <th scope="col" style="width: 1em;"></th>
+            <th scope="col" style="width: 7em;">Object type</th>
+            <th scope="col" style="width: 6em;">Retained heap size</th>
+            <th scope="col">String representation</th>
+        </tr>
+        </thead>
+        <tbody class="table-group-divider">
+        {% for obj, retained_heap_size in objects %}
+        <tr>
+            <td><a href="/objects/{{ obj.address }}" title="Address: {{ obj.address }}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" class="bi bi-box-arrow-up-right" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>
+                    <path fill-rule="evenodd" d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z"/>
+                </svg></a>
+            </td>
+            <td><code>{{ obj.type }}</code></td>
+            <td>{{ retained_heap_size }}</td>
+            <td>{{ obj.str_ }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    {{ render_pagination() }}
+</>
+{% endblock %}
+
+{% block script %}
+{% endblock %}

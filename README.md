@@ -22,6 +22,12 @@ Run:
 $ ./dump-heap.sh <pid> $(realpath .)/heap.json.gz
 ```
 
+View the heap dump with the browser-based viewer:
+```bash
+python -m pyheap.viewer --file heap.json.gz
+```
+(in the repo root directory) and open [http://127.0.0.1:5000](http://127.0.0.1:5000).
+
 Analyze the heap with the `analyzer` module:
 ```bash
 $ python3 -m pyheap.analyzer retained-heap --file heap.json.gz
