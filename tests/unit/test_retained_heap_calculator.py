@@ -13,21 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import pytest
-from typing import Callable
 from pyheap.analyzer import (
     Heap,
     RetainedHeapParallelCalculator,
     RetainedHeapSequentialCalculator,
-    RetainedHeapCalculator,
 )
 
 
-@pytest.mark.parametrize(
-    "calculator_factory",
-    [RetainedHeapSequentialCalculator, RetainedHeapParallelCalculator],
-)
-def test_minimal(calculator_factory: Callable[[Heap], RetainedHeapCalculator]) -> None:
+def test_minimal() -> None:
     heap_dict = {
         "objects": {
             "1": {"address": 1, "size": 20, "type": None, "str": "", "referents": []},
@@ -35,18 +28,14 @@ def test_minimal(calculator_factory: Callable[[Heap], RetainedHeapCalculator]) -
         "types": {},
     }
     heap = Heap(heap_dict)
-    calculator = calculator_factory(heap)
-    heap.set_retained_heap(calculator.calculate())
+    heap_seq = RetainedHeapSequentialCalculator(heap).calculate()
+    heap_par = RetainedHeapParallelCalculator(heap).calculate()
+    assert heap_seq == heap_par
+    heap.set_retained_heap(heap_seq)
     assert heap.object_retained_heap(1) == 20
 
 
-@pytest.mark.parametrize(
-    "calculator_factory",
-    [RetainedHeapSequentialCalculator, RetainedHeapParallelCalculator],
-)
-def test_self_reference(
-    calculator_factory: Callable[[Heap], RetainedHeapCalculator]
-) -> None:
+def test_self_reference() -> None:
     heap_dict = {
         "objects": {
             "1": {"address": 1, "size": 20, "type": None, "str": "", "referents": [1]},
@@ -54,18 +43,14 @@ def test_self_reference(
         "types": {},
     }
     heap = Heap(heap_dict)
-    calculator = calculator_factory(heap)
-    heap.set_retained_heap(calculator.calculate())
+    heap_seq = RetainedHeapSequentialCalculator(heap).calculate()
+    heap_par = RetainedHeapParallelCalculator(heap).calculate()
+    assert heap_seq == heap_par
+    heap.set_retained_heap(heap_seq)
     assert heap.object_retained_heap(1) == 20
 
 
-@pytest.mark.parametrize(
-    "calculator_factory",
-    [RetainedHeapSequentialCalculator, RetainedHeapParallelCalculator],
-)
-def test_circular_reference(
-    calculator_factory: Callable[[Heap], RetainedHeapCalculator]
-) -> None:
+def test_circular_reference() -> None:
     # 1 -> 2 -> 3
     # ^         |
     # +---------+
@@ -78,20 +63,16 @@ def test_circular_reference(
         "types": {},
     }
     heap = Heap(heap_dict)
-    calculator = calculator_factory(heap)
-    heap.set_retained_heap(calculator.calculate())
+    heap_seq = RetainedHeapSequentialCalculator(heap).calculate()
+    heap_par = RetainedHeapParallelCalculator(heap).calculate()
+    assert heap_seq == heap_par
+    heap.set_retained_heap(heap_seq)
     assert heap.object_retained_heap(1) == 10 + 20 + 30
     assert heap.object_retained_heap(2) == 10 + 20 + 30
     assert heap.object_retained_heap(3) == 10 + 20 + 30
 
 
-@pytest.mark.parametrize(
-    "calculator_factory",
-    [RetainedHeapSequentialCalculator, RetainedHeapParallelCalculator],
-)
-def test_simple_tree(
-    calculator_factory: Callable[[Heap], RetainedHeapCalculator]
-) -> None:
+def test_simple_tree() -> None:
     #  /-> 2
     # 1 -> 3
     #  \-> 4
@@ -111,21 +92,17 @@ def test_simple_tree(
         "types": {},
     }
     heap = Heap(heap_dict)
-    calculator = calculator_factory(heap)
-    heap.set_retained_heap(calculator.calculate())
+    heap_seq = RetainedHeapSequentialCalculator(heap).calculate()
+    heap_par = RetainedHeapParallelCalculator(heap).calculate()
+    assert heap_seq == heap_par
+    heap.set_retained_heap(heap_seq)
     assert heap.object_retained_heap(1) == 10 + 20 + 30 + 40
     assert heap.object_retained_heap(2) == 20
     assert heap.object_retained_heap(3) == 30
     assert heap.object_retained_heap(4) == 40
 
 
-@pytest.mark.parametrize(
-    "calculator_factory",
-    [RetainedHeapSequentialCalculator, RetainedHeapParallelCalculator],
-)
-def test_multi_level_tree(
-    calculator_factory: Callable[[Heap], RetainedHeapCalculator]
-) -> None:
+def test_multi_level_tree() -> None:
     #         /--> 5
     #        /---> 6
     #       /----> 7
@@ -182,8 +159,10 @@ def test_multi_level_tree(
         "types": {},
     }
     heap = Heap(heap_dict)
-    calculator = calculator_factory(heap)
-    heap.set_retained_heap(calculator.calculate())
+    heap_seq = RetainedHeapSequentialCalculator(heap).calculate()
+    heap_par = RetainedHeapParallelCalculator(heap).calculate()
+    assert heap_seq == heap_par
+    heap.set_retained_heap(heap_seq)
     assert (
         heap.object_retained_heap(1)
         == 10 + 20 + 30 + 40 + 50 + 60 + 70 + 80 + 90 + 100 + 110
@@ -200,13 +179,7 @@ def test_multi_level_tree(
     assert heap.object_retained_heap(11) == 110
 
 
-@pytest.mark.parametrize(
-    "calculator_factory",
-    [RetainedHeapSequentialCalculator, RetainedHeapParallelCalculator],
-)
-def test_long_branch(
-    calculator_factory: Callable[[Heap], RetainedHeapCalculator]
-) -> None:
+def test_long_branch() -> None:
     # 1 -> 2 -> 3 -> 4 -> 5 -> 6
     #  \-> 7
     heap_dict = {
@@ -228,8 +201,10 @@ def test_long_branch(
         "types": {},
     }
     heap = Heap(heap_dict)
-    calculator = calculator_factory(heap)
-    heap.set_retained_heap(calculator.calculate())
+    heap_seq = RetainedHeapSequentialCalculator(heap).calculate()
+    heap_par = RetainedHeapParallelCalculator(heap).calculate()
+    assert heap_seq == heap_par
+    heap.set_retained_heap(heap_seq)
     assert heap.object_retained_heap(1) == 10 + 20 + 30 + 40 + 50 + 60 + 70
     assert heap.object_retained_heap(2) == 20 + 30 + 40 + 50 + 60
     assert heap.object_retained_heap(3) == 30 + 40 + 50 + 60
@@ -239,13 +214,7 @@ def test_long_branch(
     assert heap.object_retained_heap(7) == 70
 
 
-@pytest.mark.parametrize(
-    "calculator_factory",
-    [RetainedHeapSequentialCalculator, RetainedHeapParallelCalculator],
-)
-def test_transitive(
-    calculator_factory: Callable[[Heap], RetainedHeapCalculator]
-) -> None:
+def test_transitive() -> None:
     #  /-> 2
     # 1    ^
     #  \-> 3
@@ -264,20 +233,16 @@ def test_transitive(
         "types": {},
     }
     heap = Heap(heap_dict)
-    calculator = calculator_factory(heap)
-    heap.set_retained_heap(calculator.calculate())
+    heap_seq = RetainedHeapSequentialCalculator(heap).calculate()
+    heap_par = RetainedHeapParallelCalculator(heap).calculate()
+    assert heap_seq == heap_par
+    heap.set_retained_heap(heap_seq)
     assert heap.object_retained_heap(1) == 10 + 20 + 30
     assert heap.object_retained_heap(2) == 20
     assert heap.object_retained_heap(3) == 30
 
 
-@pytest.mark.parametrize(
-    "calculator_factory",
-    [RetainedHeapSequentialCalculator, RetainedHeapParallelCalculator],
-)
-def test_side_reference(
-    calculator_factory: Callable[[Heap], RetainedHeapCalculator]
-) -> None:
+def test_side_reference() -> None:
     # 1 -> 2 -> 3 -> 4
     #                ^
     #                5
@@ -292,8 +257,10 @@ def test_side_reference(
         "types": {},
     }
     heap = Heap(heap_dict)
-    calculator = calculator_factory(heap)
-    heap.set_retained_heap(calculator.calculate())
+    heap_seq = RetainedHeapSequentialCalculator(heap).calculate()
+    heap_par = RetainedHeapParallelCalculator(heap).calculate()
+    assert heap_seq == heap_par
+    heap.set_retained_heap(heap_seq)
     assert heap.object_retained_heap(1) == 10 + 20 + 30
     assert heap.object_retained_heap(2) == 20 + 30
     assert heap.object_retained_heap(3) == 30
@@ -301,11 +268,7 @@ def test_side_reference(
     assert heap.object_retained_heap(5) == 50
 
 
-@pytest.mark.parametrize(
-    "calculator_factory",
-    [RetainedHeapSequentialCalculator, RetainedHeapParallelCalculator],
-)
-def test_cross(calculator_factory: Callable[[Heap], RetainedHeapCalculator]) -> None:
+def test_cross() -> None:
     # 1   2
     # |\ /|
     # | x |
@@ -333,21 +296,17 @@ def test_cross(calculator_factory: Callable[[Heap], RetainedHeapCalculator]) -> 
         "types": {},
     }
     heap = Heap(heap_dict)
-    calculator = calculator_factory(heap)
-    heap.set_retained_heap(calculator.calculate())
+    heap_seq = RetainedHeapSequentialCalculator(heap).calculate()
+    heap_par = RetainedHeapParallelCalculator(heap).calculate()
+    assert heap_seq == heap_par
+    heap.set_retained_heap(heap_seq)
     assert heap.object_retained_heap(1) == 10
     assert heap.object_retained_heap(2) == 20
     assert heap.object_retained_heap(3) == 30
     assert heap.object_retained_heap(4) == 40
 
 
-@pytest.mark.parametrize(
-    "calculator_factory",
-    [RetainedHeapSequentialCalculator, RetainedHeapParallelCalculator],
-)
-def test_complex_1(
-    calculator_factory: Callable[[Heap], RetainedHeapCalculator]
-) -> None:
+def test_complex_1() -> None:
     # 5 <- 4
     # |    ^    +--> 6 -> 7
     # |    |    |
@@ -379,8 +338,10 @@ def test_complex_1(
         "types": {},
     }
     heap = Heap(heap_dict)
-    calculator = calculator_factory(heap)
-    heap.set_retained_heap(calculator.calculate())
+    heap_seq = RetainedHeapSequentialCalculator(heap).calculate()
+    heap_par = RetainedHeapParallelCalculator(heap).calculate()
+    assert heap_seq == heap_par
+    heap.set_retained_heap(heap_seq)
     assert heap.object_retained_heap(1) == 10
     assert heap.object_retained_heap(2) == 20 + 10 + 60 + 70
     assert heap.object_retained_heap(3) == 30 + (20 + 10 + 60 + 70) + (40 + 50)
@@ -388,13 +349,7 @@ def test_complex_1(
     assert heap.object_retained_heap(5) == 50
 
 
-@pytest.mark.parametrize(
-    "calculator_factory",
-    [RetainedHeapSequentialCalculator, RetainedHeapParallelCalculator],
-)
-def test_complex_2(
-    calculator_factory: Callable[[Heap], RetainedHeapCalculator]
-) -> None:
+def test_complex_2() -> None:
     #         3
     #         v
     # 1 ----> 5 <--+
@@ -434,8 +389,10 @@ def test_complex_2(
         "types": {},
     }
     heap = Heap(heap_dict)
-    calculator = calculator_factory(heap)
-    heap.set_retained_heap(calculator.calculate())
+    heap_seq = RetainedHeapSequentialCalculator(heap).calculate()
+    heap_par = RetainedHeapParallelCalculator(heap).calculate()
+    assert heap_seq == heap_par
+    heap.set_retained_heap(heap_seq)
     assert heap.object_retained_heap(1) == 10
     assert heap.object_retained_heap(2) == 20 + 40
     assert heap.object_retained_heap(3) == 30
@@ -446,13 +403,7 @@ def test_complex_2(
     assert heap.object_retained_heap(8) == 80
 
 
-@pytest.mark.parametrize(
-    "calculator_factory",
-    [RetainedHeapSequentialCalculator, RetainedHeapParallelCalculator],
-)
-def test_complex_3(
-    calculator_factory: Callable[[Heap], RetainedHeapCalculator]
-) -> None:
+def test_complex_3() -> None:
     #           /-> 6
     #          /--> 5
     #         /---> 4
@@ -485,8 +436,10 @@ def test_complex_3(
         "types": {},
     }
     heap = Heap(heap_dict)
-    calculator = calculator_factory(heap)
-    heap.set_retained_heap(calculator.calculate())
+    heap_seq = RetainedHeapSequentialCalculator(heap).calculate()
+    heap_par = RetainedHeapParallelCalculator(heap).calculate()
+    assert heap_seq == heap_par
+    heap.set_retained_heap(heap_seq)
     assert heap.object_retained_heap(1) == 10 + 20 + 30 + 40 + 50 + 60 + 70
     assert heap.object_retained_heap(2) == 20 + 40 + 50 + 60
     assert heap.object_retained_heap(3) == 30
@@ -496,13 +449,7 @@ def test_complex_3(
     assert heap.object_retained_heap(7) == 70
 
 
-@pytest.mark.parametrize(
-    "calculator_factory",
-    [RetainedHeapSequentialCalculator, RetainedHeapParallelCalculator],
-)
-def test_forest_minimal(
-    calculator_factory: Callable[[Heap], RetainedHeapCalculator]
-) -> None:
+def test_forest_minimal() -> None:
     # 1  2  3  4
     heap_dict = {
         "objects": {
@@ -514,21 +461,17 @@ def test_forest_minimal(
         "types": {},
     }
     heap = Heap(heap_dict)
-    calculator = calculator_factory(heap)
-    heap.set_retained_heap(calculator.calculate())
+    heap_seq = RetainedHeapSequentialCalculator(heap).calculate()
+    heap_par = RetainedHeapParallelCalculator(heap).calculate()
+    assert heap_seq == heap_par
+    heap.set_retained_heap(heap_seq)
     assert heap.object_retained_heap(1) == 10
     assert heap.object_retained_heap(2) == 20
     assert heap.object_retained_heap(3) == 30
     assert heap.object_retained_heap(4) == 40
 
 
-@pytest.mark.parametrize(
-    "calculator_factory",
-    [RetainedHeapSequentialCalculator, RetainedHeapParallelCalculator],
-)
-def test_forest_simple(
-    calculator_factory: Callable[[Heap], RetainedHeapCalculator]
-) -> None:
+def test_forest_simple() -> None:
     # 1 -> 2  3 -> 4
     heap_dict = {
         "objects": {
@@ -540,21 +483,17 @@ def test_forest_simple(
         "types": {},
     }
     heap = Heap(heap_dict)
-    calculator = calculator_factory(heap)
-    heap.set_retained_heap(calculator.calculate())
+    heap_seq = RetainedHeapSequentialCalculator(heap).calculate()
+    heap_par = RetainedHeapParallelCalculator(heap).calculate()
+    assert heap_seq == heap_par
+    heap.set_retained_heap(heap_seq)
     assert heap.object_retained_heap(1) == 10 + 20
     assert heap.object_retained_heap(2) == 20
     assert heap.object_retained_heap(3) == 30 + 40
     assert heap.object_retained_heap(4) == 40
 
 
-@pytest.mark.parametrize(
-    "calculator_factory",
-    [RetainedHeapSequentialCalculator, RetainedHeapParallelCalculator],
-)
-def test_thread_minimal(
-    calculator_factory: Callable[[Heap], RetainedHeapCalculator]
-) -> None:
+def test_thread_minimal() -> None:
     # thread1 -> 1
     # thread2 -> 2
     heap_dict = {
@@ -597,19 +536,15 @@ def test_thread_minimal(
         "types": {},
     }
     heap = Heap(heap_dict)
-    calculator = calculator_factory(heap)
-    heap.set_retained_heap(calculator.calculate())
+    heap_seq = RetainedHeapSequentialCalculator(heap).calculate()
+    heap_par = RetainedHeapParallelCalculator(heap).calculate()
+    assert heap_seq == heap_par
+    heap.set_retained_heap(heap_seq)
     assert heap.thread_retained_heap("thread1") == 10
     assert heap.thread_retained_heap("thread2") == 20
 
 
-@pytest.mark.parametrize(
-    "calculator_factory",
-    [RetainedHeapSequentialCalculator, RetainedHeapParallelCalculator],
-)
-def test_thread_simple_multi_frame(
-    calculator_factory: Callable[[Heap], RetainedHeapCalculator]
-) -> None:
+def test_thread_simple_multi_frame() -> None:
     # thread1 -> 1 -> 2
     #            |
     #            +--> 3
@@ -685,19 +620,15 @@ def test_thread_simple_multi_frame(
         "types": {},
     }
     heap = Heap(heap_dict)
-    calculator = calculator_factory(heap)
-    heap.set_retained_heap(calculator.calculate())
+    heap_seq = RetainedHeapSequentialCalculator(heap).calculate()
+    heap_par = RetainedHeapParallelCalculator(heap).calculate()
+    assert heap_seq == heap_par
+    heap.set_retained_heap(heap_seq)
     assert heap.thread_retained_heap("thread1") == 10 + 20 + 30
     assert heap.thread_retained_heap("thread2") == 40 + 50 + 60
 
 
-@pytest.mark.parametrize(
-    "calculator_factory",
-    [RetainedHeapSequentialCalculator, RetainedHeapParallelCalculator],
-)
-def test_thread_complex_1(
-    calculator_factory: Callable[[Heap], RetainedHeapCalculator]
-) -> None:
+def test_thread_complex_1() -> None:
     # 5 <- 4
     # |    ^    +--> 6 -> 7
     # |    |    |
@@ -767,13 +698,15 @@ def test_thread_complex_1(
         "types": {},
     }
     heap = Heap(heap_dict)
-    calculator = calculator_factory(heap)
-    heap.set_retained_heap(calculator.calculate())
+    heap_seq = RetainedHeapSequentialCalculator(heap).calculate()
+    heap_par = RetainedHeapParallelCalculator(heap).calculate()
+    assert heap_seq == heap_par
+    heap.set_retained_heap(heap_seq)
     assert heap.thread_retained_heap("thread1") == 10 + 20 + 60 + 70
     assert heap.thread_retained_heap("thread2") == 50 + 70
 
 
-def test_calculators_equivalent() -> None:
+def test_calculators_equivalent_on_big_generated() -> None:
     objects = {
         str(i): {"address": i, "size": 20, "type": None, "str": "", "referents": []}
         for i in range(20_000)
@@ -786,6 +719,7 @@ def test_calculators_equivalent() -> None:
         "types": {},
     }
     heap = Heap(heap_dict)
-    sequential_calculator = RetainedHeapSequentialCalculator(heap)
-    parallel_calculator = RetainedHeapParallelCalculator(heap)
-    assert parallel_calculator.calculate() == sequential_calculator.calculate()
+    heap_seq = RetainedHeapSequentialCalculator(heap).calculate()
+    heap_par = RetainedHeapParallelCalculator(heap).calculate()
+    assert heap_seq == heap_par
+    heap.set_retained_heap(heap_seq)
