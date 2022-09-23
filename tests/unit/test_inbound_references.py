@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from pyheap.analyzer import Heap
+from pyheap.heap import Heap
 
 
 def test_minimal() -> None:

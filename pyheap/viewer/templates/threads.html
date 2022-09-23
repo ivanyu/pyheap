@@ -1,0 +1,87 @@
+<!--
+  Copyright 2022 Ivan Yurchenko
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+{% extends 'base.html' %}
+
+{% block style %}
+<style>
+    .thread-panel {
+    }
+
+    .thread-attribute {
+        font-size: 1em;
+    }
+
+    .inline-object-str {
+        font-size: 0.75em;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="main-panel">
+
+{% for thread in threads %}
+    <h3>{{ thread.thread_name }}</h3>
+    <p style="font-size: 1em;">
+        {% if thread.alive %}
+        <span class="thread-attribute badge text-bg-success">Alive: true</span>
+        {% else %}
+        <span class="thread-attribute badge text-bg-dark">Alive: false</span>
+        {% endif %}
+
+        {% if thread.daemon %}
+        <span class="thread-attribute badge text-bg-light">Daemon: true</span>
+        {% else %}
+        <span class="thread-attribute badge text-bg-light">Daemon: false</span>
+        {% endif %}
+    </p>
+
+    <ul class="list-group ps-2">
+        {% for frame in thread.stack_trace %}
+        <li class="list-group-item">
+            <div>
+                <div>
+                    File <code>{{ frame.file }}}</code>,
+                    line {{ frame.lineno }},
+                    in <code>{{ frame.name }}</code>
+                </div>
+                <div class="ps-3 text-truncate">
+                    Locals:
+                    <ul>
+                        {% for local, local_addr in frame.locals.items() %}
+                        <li>
+                            <code>{{ local }}</code>
+                            <a href="/objects/{{ local_addr }}" title="Address: {{ local_addr }}">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" class="bi bi-box-arrow-up-right" viewBox="0 0 16 16">
+                                    <path fill-rule="evenodd" d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>
+                                    <path fill-rule="evenodd" d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z"/>
+                                </svg></a>
+                            <span class="inline-object-str text-muted">{{ objects[local_addr].str_ }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+{% endfor %}
+</div>
+{% endblock %}
+
+
+{% block script %}
+{% endblock %}
