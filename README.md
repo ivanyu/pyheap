@@ -15,6 +15,7 @@ Some popular libraries were tested:
 
 ## Usage
 
+### Dumping the heap
 Find the PID of a running CPython process you're interested in.
 
 Run:
@@ -22,11 +23,21 @@ Run:
 $ ./dump-heap.sh <pid> $(realpath .)/heap.json.gz
 ```
 
+### Browser-based viewer
+
 View the heap dump with the browser-based viewer:
 ```bash
 python -m pyheap.viewer --file heap.json.gz
 ```
 (in the repo root directory) and open [http://127.0.0.1:5000](http://127.0.0.1:5000).
+
+![Thread view](doc/screenshot1.png)
+
+![Heap view](doc/screenshot2.png)
+
+![Object view](doc/screenshot3.png)
+
+### Command-line heap analyzer
 
 Analyze the heap with the `analyzer` module:
 ```bash
