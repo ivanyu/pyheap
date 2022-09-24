@@ -476,6 +476,10 @@ class Heap:
         return self._objects
 
     @property
+    def types(self) -> Mapping[Address, str]:
+        return self._types
+
+    @property
     def inbound_references(self) -> InboundReferences:
         return self._inbound_references
 

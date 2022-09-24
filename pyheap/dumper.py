@@ -83,7 +83,7 @@ def _dump_heap0(heap_file: str) -> str:
                 str_ = "<ERROR on __str__>"
             obj_dict = {
                 "address": id(obj),
-                "type": type_.__name__,
+                "type": id(type_),
                 "size": sys.getsizeof(obj),
                 "str": str_,
                 "referents": [id(r) for r in referents],

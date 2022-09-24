@@ -32,6 +32,8 @@ def test_dumper(tmp_path: Path) -> None:
     assert "objects" in heap
     assert "types" in heap
 
+    types = heap["types"]
+
     threads = heap["threads"]
     # This will fail in PyCharm debugging.
     assert len(threads) == 2
@@ -55,19 +57,26 @@ def test_dumper(tmp_path: Path) -> None:
     _assert_object(
         heap,
         frame["locals"]["a"],
-        {"type": "int", "size": 28, "str": "42", "referents": []},
+        {
+            "type": _find_type_by_name(types, "int"),
+            "size": 28,
+            "str": "42",
+            "referents": [],
+        },
     )
     _assert_object(
         heap,
         frame["locals"]["dumper_dir"],
         {
-            "type": "str",
+            "type": _find_type_by_name(types, "str"),
             "size": 87,
             "str": str(Path(__file__).parent.parent.parent / "pyheap"),
             "referents": [],
         },
     )
-    assert _get_object(heap, frame["locals"]["dumper"])["type"] == "module"
+    assert _get_object(heap, frame["locals"]["dumper"])["type"] == _find_type_by_name(
+        types, "module"
+    )
 
     frame = main_thread["stack_trace"][1]
     assert frame["file"] == mock_inferior_file
@@ -77,12 +86,22 @@ def test_dumper(tmp_path: Path) -> None:
     _assert_object(
         heap,
         frame["locals"]["a"],
-        {"type": "int", "size": 28, "str": "42", "referents": []},
+        {
+            "type": _find_type_by_name(types, "int"),
+            "size": 28,
+            "str": "42",
+            "referents": [],
+        },
     )
     _assert_object(
         heap,
         frame["locals"]["b"],
-        {"type": "str", "size": 53, "str": "leaf", "referents": []},
+        {
+            "type": _find_type_by_name(types, "str"),
+            "size": 53,
+            "str": "leaf",
+            "referents": [],
+        },
     )
 
     frame = main_thread["stack_trace"][2]
@@ -93,17 +112,32 @@ def test_dumper(tmp_path: Path) -> None:
     _assert_object(
         heap,
         frame["locals"]["a"],
-        {"type": "int", "size": 28, "str": "42", "referents": []},
+        {
+            "type": _find_type_by_name(types, "int"),
+            "size": 28,
+            "str": "42",
+            "referents": [],
+        },
     )
     _assert_object(
         heap,
         frame["locals"]["b"],
-        {"type": "str", "size": 53, "str": "leaf", "referents": []},
+        {
+            "type": _find_type_by_name(types, "str"),
+            "size": 53,
+            "str": "leaf",
+            "referents": [],
+        },
     )
     _assert_object(
         heap,
         frame["locals"]["c"],
-        {"type": "float", "size": 24, "str": "12.5", "referents": []},
+        {
+            "type": _find_type_by_name(types, "float"),
+            "size": 24,
+            "str": "12.5",
+            "referents": [],
+        },
     )
 
     frame = main_thread["stack_trace"][3]
@@ -138,19 +172,24 @@ def test_dumper(tmp_path: Path) -> None:
     _assert_object(
         heap,
         frame["locals"]["some_string"],
-        {"type": "str", "size": 60, "str": "hello world", "referents": []},
+        {
+            "type": _find_type_by_name(types, "str"),
+            "size": 60,
+            "str": "hello world",
+            "referents": [],
+        },
     )
 
     obj = _get_object(heap, frame["locals"]["some_list"])
     assert obj["address"] == frame["locals"]["some_list"]
-    assert obj["type"] == "list"
+    assert obj["type"] == _find_type_by_name(types, "list")
     assert obj["size"] in {120, 88}  # depends on Python minor version
     assert obj["str"] == "[1, 2, 3]"
     assert {_get_object(heap, r)["str"] for r in obj["referents"]} == {"1", "2", "3"}
 
     obj = _get_object(heap, frame["locals"]["some_tuple"])
     assert obj["address"] == frame["locals"]["some_tuple"]
-    assert obj["type"] == "tuple"
+    assert obj["type"] == _find_type_by_name(types, "tuple")
     assert obj["size"] == 64
     assert obj["str"] == "('a', 'b', 'c')"
     assert {_get_object(heap, r)["str"] for r in obj["referents"]} == {"a", "b", "c"}
@@ -174,12 +213,17 @@ def test_dumper(tmp_path: Path) -> None:
     _assert_object(
         heap,
         frame["locals"]["local_1"],
-        {"type": "str", "size": 62, "str": "local_1 value", "referents": []},
+        {
+            "type": _find_type_by_name(types, "str"),
+            "size": 62,
+            "str": "local_1 value",
+            "referents": [],
+        },
     )
 
     obj = _get_object(heap, frame["locals"]["local_2"])
     assert obj["address"] == frame["locals"]["local_2"]
-    assert obj["type"] == "list"
+    assert obj["type"] == _find_type_by_name(types, "list")
     assert obj["size"] == 64
     assert obj["str"] == "['local_2 value']"
     assert {_get_object(heap, r)["str"] for r in obj["referents"]} == {"local_2 value"}
@@ -235,3 +279,11 @@ def _assert_object(
     expected_with_adds = dict(expected)
     expected_with_adds["address"] = addr
     assert actual == expected_with_adds
+
+
+def _find_type_by_name(types: Mapping[str, Any], type_name: str) -> int:
+    for type_address, type_name0 in types.items():
+        if type_name0 == type_name:
+            return int(type_address)
+    else:
+        raise ValueError("not found")
