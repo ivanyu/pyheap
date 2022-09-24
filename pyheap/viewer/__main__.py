@@ -60,6 +60,7 @@ def heap() -> str:
         tab_heap_active=True,
         pagination=pagination,
         objects=objects,
+        types=heap.types,
         total_heap_size=total_heap_size,
         object_count=object_count,
     )
@@ -75,10 +76,12 @@ def objects(address_str: str) -> str:
     if address not in heap.objects:
         abort(404)
 
+    obj = heap.objects[address]
     return render_template(
         "objects.html",
         tab_object_active=True,
-        obj=heap.objects[address],
+        obj=obj,
+        type=heap.types[obj.type],
         retained_heap=heap.object_retained_heap(address),
     )
 
@@ -92,7 +95,10 @@ def objects_batch() -> JsonObject:
     for address in addresses:
         if address not in heap.objects:
             abort(404)
-        result.append(heap.objects[address].to_json())
+        obj = heap.objects[address]
+        obj_json = obj.to_json()
+        obj_json["type"] = heap.types[obj.type]
+        result.append(obj_json)
     return {"objects": result}
 
 
@@ -105,7 +111,10 @@ def api_object_get(address: str) -> JsonObject:
     if address_int not in heap.objects:
         abort(404)
 
-    return heap.objects[address_int].to_json()
+    obj = heap.objects[address_int]
+    result = obj.to_json()
+    result["type"] = heap.types[obj.type]
+    return result
 
 
 class Pagination:
