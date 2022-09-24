@@ -83,6 +83,19 @@ def objects(address_str: str) -> str:
     )
 
 
+@app.route("/api/objects/", methods=["POST"])
+def objects_batch() -> JsonObject:
+    if "addresses" not in request.json:
+        abort(400)
+    addresses = request.json["addresses"]
+    result = []
+    for address in addresses:
+        if address not in heap.objects:
+            abort(404)
+        result.append(heap.objects[address].to_json())
+    return {"objects": result}
+
+
 @app.route("/api/objects/<address>")
 def api_object_get(address: str) -> JsonObject:
     try:
