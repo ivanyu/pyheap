@@ -28,13 +28,27 @@ function escapeHtml(string) {
     return String(string).replace(/[&<>"'`=\/]/g, s => escapeReplacements[s]);
 }
 
-async function getObject(addr) {
-    return fetch(`/api/objects/${addr}`)
-        .then(resp => resp.json());
+async function getObjects(addresses) {
+    const response = await fetch(
+        "/api/objects/",
+        {
+            "method": "POST",
+            "body": JSON.stringify({"addresses": addresses}),
+            "headers": {"Accept": "application/json", "Content-Type": "application/json"}
+        });
+    return (await response.json())["objects"];
 }
 
-const rootReferents = getObject(rootAddr).then(obj => obj.referents);
-const referentObjectPromises = rootReferents.then(referents => referents.map(r => getObject(r)));
+async function getObject(addr) {
+    return (await getObjects([addr]))[0];
+}
+
+async function fetchRootReferents() {
+    const rootObject = await getObject(rootAddr);
+    const referents = await getObjects(rootObject.referents);
+    return referents;
+}
+const rootReferents = fetchRootReferents();
 
 function createExpandButton(onExpand, onCollapse) {
     const iconCollapsed = $(`
@@ -93,9 +107,8 @@ async function onExpand() {
         li.after(spinner);
 
         li.treeChildrenList = createTreeList(true);
-        const objectPromises = li.object.referents.map(getObject);
-        for (const objP of objectPromises) {
-            const obj = await objP;
+        const objects = await getObjects(li.object.referents);
+        for (const obj of objects) {
             const treeChild = createTreeNode(obj, li);
             li.treeChildrenList.append(treeChild);
         }
@@ -141,8 +154,7 @@ $( document ).ready(async function() {
     const list = createTreeList(false);
     $("#referent-tree-panel").append(list);
 
-    for (const objPromise of (await referentObjectPromises)) {
-        const obj = await objPromise;
+    for (const obj of (await rootReferents)) {
         const treeNode = createTreeNode(obj, null);
         list.append(treeNode);
     }
