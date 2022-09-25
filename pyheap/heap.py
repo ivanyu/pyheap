@@ -28,7 +28,7 @@ from functools import cached_property
 from multiprocessing import Pool
 from typing import Mapping, Any, Set, Dict, Collection, List, Tuple, Optional
 
-LOG = logging.getLogger()
+LOG = logging.getLogger("heap")
 LOG.setLevel(logging.DEBUG)
 handler = logging.StreamHandler(sys.stderr)
 handler.setLevel(logging.DEBUG)

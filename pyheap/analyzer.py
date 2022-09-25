@@ -25,7 +25,7 @@ import logging
 
 from pyheap.heap import Heap, provide_retained_heap_with_caching
 
-LOG = logging.getLogger()
+LOG = logging.getLogger("analyzer")
 LOG.setLevel(logging.DEBUG)
 handler = logging.StreamHandler(sys.stderr)
 handler.setLevel(logging.DEBUG)
