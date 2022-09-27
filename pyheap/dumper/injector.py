@@ -30,13 +30,15 @@ class DumpPythonHeap(gdb.Function):
     def invoke(
         self, dumper_path: gdb.Value, heap_file: gdb.Value, str_len: gdb.Value
     ) -> str:
-        dumper_module_ptr = self._inject_dumper_module(dumper_path.string())
-
         if str_len.type.name != "int":
             raise ValueError("str_len must be int")
-
         heap_file_str = heap_file.string()
         str_len_int = int(str_len)
+
+        dumper_module_ptr = self._inject_dumper_module(dumper_path.string())
+        if dumper_module_ptr == 0:
+            return "Error injecting dumper module"
+
         result_str_ptr = self._call_dump_function(
             dumper_module_ptr, heap_file_str, str_len_int
         )
@@ -57,7 +59,9 @@ class DumpPythonHeap(gdb.Function):
         )
         gdb.parse_and_eval(f"(int) PyList_Insert({path_ptr}, 1, {extra_path_ptr})")
 
-        return DumpPythonHeap.get_ptr('(void*) PyImport_ImportModule("dumper")')
+        return DumpPythonHeap.get_ptr(
+            '(void*) PyImport_ImportModule("dumper_inferior")'
+        )
 
     @staticmethod
     def _call_dump_function(

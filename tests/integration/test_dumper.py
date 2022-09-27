@@ -52,7 +52,7 @@ def test_dumper(tmp_path: Path) -> None:
     assert set(frame["locals"].keys()) == {
         "a",
         "dumper_dir",
-        "dumper",
+        "dumper_inferior",
     }
     _assert_object(
         heap,
@@ -69,14 +69,14 @@ def test_dumper(tmp_path: Path) -> None:
         frame["locals"]["dumper_dir"],
         {
             "type": _find_type_by_name(types, "str"),
-            "size": 87,
-            "str": str(Path(__file__).parent.parent.parent / "pyheap"),
+            "size": 94,
+            "str": str(Path(__file__).parent.parent.parent / "pyheap" / "dumper"),
             "referents": [],
         },
     )
-    assert _get_object(heap, frame["locals"]["dumper"])["type"] == _find_type_by_name(
-        types, "module"
-    )
+    assert _get_object(heap, frame["locals"]["dumper_inferior"])[
+        "type"
+    ] == _find_type_by_name(types, "module")
 
     frame = main_thread["stack_trace"][1]
     assert frame["file"] == mock_inferior_file
