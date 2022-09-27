@@ -20,13 +20,14 @@ Find the PID of a running CPython process you're interested in.
 
 Run:
 ```bash
-$ ./dump-heap.sh <pid> $(realpath .)/heap.json.gz
+$ python -m pyheap.dumper --pid <pid> --file heap.json.gz
 ```
 
-You can specify the maximum length of the string representation of objects (1000 by default):
+See 
 ```bash
-$ ./dump-heap.sh <pid> $(realpath .)/heap.json.gz 100
+$ python -m pyheap.dumper -h
 ```
+for additional options.
 
 ### Browser-based viewer
 
