@@ -23,6 +23,11 @@ Run:
 $ ./dump-heap.sh <pid> $(realpath .)/heap.json.gz
 ```
 
+You can specify the maximum length of the string representation of objects (1000 by default):
+```bash
+$ ./dump-heap.sh <pid> $(realpath .)/heap.json.gz 100
+```
+
 ### Browser-based viewer
 
 View the heap dump with the browser-based viewer:

@@ -33,9 +33,9 @@ class _PyObject(NamedTuple):
     referents: List[Any]
 
 
-def dump_heap(heap_file: str) -> str:
+def dump_heap(heap_file: str, str_len: int) -> str:
     try:
-        return _dump_heap0(heap_file)
+        return _dump_heap0(heap_file, str_len)
     except:
         import traceback
 
@@ -43,7 +43,7 @@ def dump_heap(heap_file: str) -> str:
         return traceback.format_exc()
 
 
-def _dump_heap0(heap_file: str) -> str:
+def _dump_heap0(heap_file: str, str_len: int) -> str:
     start = time.monotonic()
     visited = 0
 
@@ -78,7 +78,9 @@ def _dump_heap0(heap_file: str) -> str:
                 first_iteration = False
 
             try:
-                str_ = str(obj)[:1000]
+                str_ = str(obj)
+                if str_len > -1:
+                    str_ = str_[:str_len]
             except:
                 str_ = "<ERROR on __str__>"
             obj_dict = {

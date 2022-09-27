@@ -51,7 +51,7 @@ def function3(a: int) -> None:
     sys.path.insert(1, dumper_dir)
     import dumper
 
-    dumper.dump_heap(heap_file)
+    dumper.dump_heap(heap_file, 1000)
 
 
 def function2(a: int, b: str) -> None:
