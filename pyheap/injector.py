@@ -27,11 +27,19 @@ class DumpPythonHeap(gdb.Function):
     def __init__(self) -> None:
         super(DumpPythonHeap, self).__init__("dump_python_heap")
 
-    def invoke(self, dumper_path: gdb.Value, heap_file: gdb.Value) -> str:
+    def invoke(
+        self, dumper_path: gdb.Value, heap_file: gdb.Value, str_len: gdb.Value
+    ) -> str:
         dumper_module_ptr = self._inject_dumper_module(dumper_path.string())
 
+        if str_len.type.name != "int":
+            raise ValueError("str_len must be int")
+
         heap_file_str = heap_file.string()
-        result_str_ptr = self._call_dump_function(dumper_module_ptr, heap_file_str)
+        str_len_int = int(str_len)
+        result_str_ptr = self._call_dump_function(
+            dumper_module_ptr, heap_file_str, str_len_int
+        )
         result = gdb.parse_and_eval(
             f"(char *)PyUnicode_AsUTF8({result_str_ptr})"
         ).string()
@@ -52,12 +60,14 @@ class DumpPythonHeap(gdb.Function):
         return DumpPythonHeap.get_ptr('(void*) PyImport_ImportModule("dumper")')
 
     @staticmethod
-    def _call_dump_function(dumper_module_ptr: int, heap_file_name: str) -> Pointer:
+    def _call_dump_function(
+        dumper_module_ptr: int, heap_file_name: str, str_len: int
+    ) -> Pointer:
         dump_heap_ptr = DumpPythonHeap.get_ptr(
             f'(void *) PyObject_GetAttrString({dumper_module_ptr}, "dump_heap")'
         )
         return DumpPythonHeap.get_ptr(
-            f'(void *) PyObject_CallFunction({dump_heap_ptr}, "s", "{heap_file_name}")'
+            f'(void *) PyObject_CallFunction({dump_heap_ptr}, "si", "{heap_file_name}", {str_len})'
         )
 
     @staticmethod

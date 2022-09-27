@@ -19,7 +19,14 @@ set -o pipefail
 
 PID=$1
 HEAP_DUMP_PATH=$2
-echo "Dumping heap from $PID into $HEAP_DUMP_PATH"
+
+STR_LEN=$3
+if [[ -z $STR_LEN ]]
+then
+  STR_LEN=1000
+fi
+
+echo "Dumping heap from $PID into $HEAP_DUMP_PATH, max length of string representation is $STR_LEN"
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 CODE_PATH="$SCRIPT_DIR/pyheap"
@@ -34,7 +41,7 @@ gdb --readnow \
   -ex "del 1" \
   -ex "source $INJECTOR_PATH" \
   -ex "set print elements 0" \
-  -ex "print \$dump_python_heap(\"$CODE_PATH\", \"$HEAP_DUMP_PATH\")" \
+  -ex "print \$dump_python_heap(\"$CODE_PATH\", \"$HEAP_DUMP_PATH\", 10)" \
   -ex "detach" \
   -ex "quit" \
   -p $PID
