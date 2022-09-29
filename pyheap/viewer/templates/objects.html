@@ -27,9 +27,15 @@
     <p><strong>Size:</strong> {{ obj.size }} B</p>
     <p><strong>Retained heap:</strong> {{ retained_heap }} B</p>
     <p><strong>String representation:</strong> <span class="inline-object-str text-muted">{{ obj.str_ }}</span></p>
-    <div id="referent-tree-panel" class="text-truncate" style="overflow: scroll;">
-        <strong>Referents:</strong>
+    <div id="referent-tree-panel" class="text-truncate pt-3" style="overflow: scroll;">
+        <strong>Referents:</strong><br/>
         <div id="referent-tree-spinner" class="spinner-border m-5" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+    <div id="inbound-references-tree-panel" class="text-truncate pt-3" style="overflow: scroll;">
+        <strong>Inbound references:</strong><br/>
+        <div id="inbound-references-tree-spinner" class="spinner-border m-5" role="status">
             <span class="visually-hidden">Loading...</span>
         </div>
     </div>
