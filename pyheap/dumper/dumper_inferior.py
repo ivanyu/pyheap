@@ -55,6 +55,14 @@ def _dump_heap(heap_file: str, str_len: int) -> str:
     with open_func(heap_file, "wb") as f:
         f.write("{\n".encode("utf-8"))
 
+        f.write('  "metadata": '.encode("utf-8"))
+        from datetime import datetime, timezone
+
+        local_tz = datetime.now(timezone.utc).astimezone().tzinfo
+        metadata = {"version": 1, "created_at": datetime.now(tz=local_tz).isoformat()}
+        f.write(json.dumps(metadata, indent=2).encode("utf-8"))
+        f.write(",\n".encode("utf-8"))
+
         f.write('  "threads": '.encode("utf-8"))
         f.write(json.dumps(threads, indent=2).encode("utf-8"))
         f.write(",\n".encode("utf-8"))
