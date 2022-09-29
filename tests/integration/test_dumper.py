@@ -21,9 +21,9 @@ from typing import Mapping, Any
 
 def test_dumper(tmp_path: Path) -> None:
     heap_file = str(tmp_path / "test_heap.json")
-    mock_inferior_file = str(Path(__file__).parent / "resources" / "mock_inferior.py_")
+    mock_inferior_file = str(Path(__file__).parent / "resources" / "mock_inferior.py")
     r = subprocess.run(["python", mock_inferior_file, heap_file])
-    assert r.returncode == 0
+    assert r.returncode == 0  # not all errors may be propagated as return code
 
     with open(heap_file, "r") as f:
         heap = json.load(f)
@@ -36,23 +36,33 @@ def test_dumper(tmp_path: Path) -> None:
 
     threads = heap["threads"]
     # This will fail in PyCharm debugging.
-    assert len(threads) == 2
+    assert (
+        len(threads) == 2
+    ), "Unexpected thread count (are you under PyCharm debugger?)"
 
     main_thread = next(t for t in threads if t["thread_name"] == "MainThread")
     assert main_thread["thread_name"] == "MainThread"
     assert main_thread["alive"] is True
     assert main_thread["daemon"] is False
 
-    assert len(main_thread["stack_trace"]) == 4
+    assert len(main_thread["stack_trace"]) == 7
 
     frame = main_thread["stack_trace"][0]
+    assert frame["file"].endswith("/runpy.py")
+    frame = main_thread["stack_trace"][1]
+    assert frame["file"].endswith("/runpy.py")
+    frame = main_thread["stack_trace"][2]
+    assert frame["file"].endswith("/runpy.py")
+    assert frame["name"] == "run_path"
+
+    frame = main_thread["stack_trace"][3]
     assert frame["file"] == mock_inferior_file
-    assert frame["lineno"] == 54
+    assert frame["lineno"] == 58
     assert frame["name"] == "function3"
     assert set(frame["locals"].keys()) == {
         "a",
-        "dumper_dir",
-        "dumper_inferior",
+        "dumper_path",
+        "runpy",
     }
     _assert_object(
         heap,
@@ -66,21 +76,26 @@ def test_dumper(tmp_path: Path) -> None:
     )
     _assert_object(
         heap,
-        frame["locals"]["dumper_dir"],
+        frame["locals"]["dumper_path"],
         {
             "type": _find_type_by_name(types, "str"),
-            "size": 94,
-            "str": str(Path(__file__).parent.parent.parent / "pyheap" / "dumper"),
+            "size": 113,
+            "str": str(
+                Path(__file__).parent.parent.parent
+                / "pyheap"
+                / "dumper"
+                / "dumper_inferior.py"
+            ),
             "referents": [],
         },
     )
-    assert _get_object(heap, frame["locals"]["dumper_inferior"])[
-        "type"
-    ] == _find_type_by_name(types, "module")
+    assert _get_object(heap, frame["locals"]["runpy"])["type"] == _find_type_by_name(
+        types, "module"
+    )
 
-    frame = main_thread["stack_trace"][1]
+    frame = main_thread["stack_trace"][4]
     assert frame["file"] == mock_inferior_file
-    assert frame["lineno"] == 58
+    assert frame["lineno"] == 68
     assert frame["name"] == "function2"
     assert set(frame["locals"].keys()) == {"a", "b"}
     _assert_object(
@@ -104,9 +119,9 @@ def test_dumper(tmp_path: Path) -> None:
         },
     )
 
-    frame = main_thread["stack_trace"][2]
+    frame = main_thread["stack_trace"][5]
     assert frame["file"] == mock_inferior_file
-    assert frame["lineno"] == 62
+    assert frame["lineno"] == 72
     assert frame["name"] == "function1"
     assert set(frame["locals"].keys()) == {"a", "b", "c"}
     _assert_object(
@@ -140,9 +155,9 @@ def test_dumper(tmp_path: Path) -> None:
         },
     )
 
-    frame = main_thread["stack_trace"][3]
+    frame = main_thread["stack_trace"][6]
     assert frame["file"] == mock_inferior_file
-    assert frame["lineno"] == 65
+    assert frame["lineno"] == 75
     assert frame["name"] == "<module>"
     assert set(frame["locals"].keys()) == {
         "__name__",

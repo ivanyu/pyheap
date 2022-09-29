@@ -47,11 +47,21 @@ some_tuple = ("a", "b", "c")
 
 
 def function3(a: int) -> None:
-    dumper_dir = str(Path(__file__).parent.parent.parent.parent / "pyheap" / "dumper")
-    sys.path.insert(1, dumper_dir)
-    import dumper_inferior
+    dumper_path = str(
+        Path(__file__).parent.parent.parent.parent
+        / "pyheap"
+        / "dumper"
+        / "dumper_inferior.py"
+    )
+    import runpy
 
-    dumper_inferior.dump_heap(heap_file, 1000)
+    runpy.run_path(
+        path_name=dumper_path,
+        init_globals={
+            "heap_file": heap_file,
+            "str_len": 1000,
+        },
+    )
 
 
 def function2(a: int, b: str) -> None:

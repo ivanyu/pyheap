@@ -27,23 +27,20 @@ from typing import List, Any, NamedTuple, Dict, Tuple
 This module is executed in the context of the inferior.
 """
 
+# Inputs:
+heap_file: str
+str_len: int
+
+# Output:
+result = None
+
 
 class _PyObject(NamedTuple):
     obj: Any
     referents: List[Any]
 
 
-def dump_heap(heap_file: str, str_len: int) -> str:
-    try:
-        return _dump_heap0(heap_file, str_len)
-    except:
-        import traceback
-
-        print(traceback.format_exc())
-        return traceback.format_exc()
-
-
-def _dump_heap0(heap_file: str, str_len: int) -> str:
+def _dump_heap(heap_file: str, str_len: int) -> str:
     start = time.monotonic()
     visited = 0
 
@@ -108,18 +105,10 @@ def _dump_heap0(heap_file: str, str_len: int) -> str:
 def _get_gc_tracked_objects() -> List[Any]:
     invisible_objects = set()
     invisible_objects.add(id(invisible_objects))
-    invisible_objects.add(id(sys.modules["dumper_inferior"]))
-    invisible_objects.add(id(sys.modules["dumper_inferior"].__name__))
-    invisible_objects.add(id(sys.modules["dumper_inferior"].__dict__))
-    invisible_objects.add(id(sys.modules["dumper_inferior"].__doc__))
-    invisible_objects.add(id(sys.modules["dumper_inferior"].__loader__))
-    invisible_objects.add(id(sys.modules["dumper_inferior"].__spec__))
-    invisible_objects.add(id(sys.modules["dumper_inferior"].__package__))
-    invisible_objects.add(id(sys.modules["dumper_inferior"].__file__))
     invisible_objects.add(id(_PyObject))
-    invisible_objects.add(id(dump_heap))
-    invisible_objects.add(id(_dump_heap0))
+    invisible_objects.add(id(_dump_heap))
     invisible_objects.add(id(_all_objects))
+    invisible_objects.add(id(_get_threads_and_locals))
 
     return [o for o in gc.get_objects() if id(o) not in invisible_objects]
 
@@ -187,3 +176,10 @@ def _all_objects(gc_tracked_objects: List[Any], locals_: List[Any]) -> List[_PyO
         to_visit.extend(referents)
 
     return result
+
+
+try:
+    result = _dump_heap(heap_file, str_len)
+except:
+    print(traceback.format_exc())
+    result = traceback.format_exc()

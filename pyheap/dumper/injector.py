@@ -14,6 +14,10 @@
 # limitations under the License.
 #
 from __future__ import annotations
+
+from contextlib import closing
+from typing import Optional
+
 import gdb
 
 """
@@ -21,6 +25,76 @@ This module is executed in the context of GDB's own Python interpreter.
 """
 
 Pointer = int
+_NULL = 0
+
+
+class InjectorException(Exception):
+    ...
+
+
+def _get_ptr(expression: str) -> Pointer:
+    return int(gdb.parse_and_eval(expression))
+
+
+class _GlobalsDict:
+    def __init__(self, **kwargs: str | int) -> None:
+        # Doc: https://docs.python.org/3/c-api/arg.html#c.Py_BuildValue
+        format_items = []
+        param_items = []
+        for k, v in kwargs.items():
+            format_items.append("s")
+            param_items.append(f'"{k}"')
+            if isinstance(v, str):
+                format_items.append("s")
+                param_items.append(f'"{v}"')
+            elif isinstance(v, int):
+                format_items.append("i")
+                param_items.append(f"{v}")
+            else:
+                raise ValueError(f"Unsupported type {type(v)} of value {v}")
+        format_str = "{" + "".join(format_items) + "}"
+        param_str = ", ".join(param_items)
+        self._ptr = _get_ptr(f'(void*) Py_BuildValue("{format_str}", {param_str})')
+        if self._ptr == _NULL:
+            raise InjectorException("Error calling Py_BuildValue")
+
+    @property
+    def ptr(self) -> Pointer:
+        return self._ptr
+
+    def get_str(self, key: str) -> Optional[str]:
+        ptr = self._get(key)
+        if ptr == _NULL:
+            return None
+        # Doc: https://docs.python.org/3/c-api/unicode.html#c.PyUnicode_AsUTF8
+        result = gdb.parse_and_eval(
+            f"(char*) PyUnicode_AsUTF8({ptr})"
+        )  # borrowed reference
+        if result == _NULL:
+            raise InjectorException("Error calling PyUnicode_AsUTF8")
+        return result.string()
+
+    def _get(self, key: str) -> Pointer:
+        # Doc: https://docs.python.org/3/c-api/dict.html#c.PyDict_GetItemString
+        return _get_ptr(f'(void*) PyDict_GetItemString({self._ptr}, "{key}")')
+
+    def close(self) -> None:
+        # Doc: https://docs.python.org/3/c-api/refcounting.html#c.Py_DecRef
+        gdb.parse_and_eval(f"(void*) Py_DecRef({self.ptr})")
+
+
+class _FP:
+    def __init__(self, path: str) -> None:
+        self._fp = _get_ptr(f'(void*) fopen("{path}", "r")')
+        if self._fp == _NULL:
+            raise InjectorException(f"Error opening {path}")
+
+    @property
+    def ptr(self) -> Pointer:
+        return self._fp
+
+    def close(self) -> None:
+        gdb.parse_and_eval(f"fclose({self.ptr})")
 
 
 class DumpPythonHeap(gdb.Function):
@@ -34,49 +108,32 @@ class DumpPythonHeap(gdb.Function):
             raise ValueError("str_len must be int")
         heap_file_str = heap_file.string()
         str_len_int = int(str_len)
+        dumper_path_str = dumper_path.string()
 
-        dumper_module_ptr = self._inject_dumper_module(dumper_path.string())
-        if dumper_module_ptr == 0:
-            return "Error injecting dumper module"
-
-        result_str_ptr = self._call_dump_function(
-            dumper_module_ptr, heap_file_str, str_len_int
+        globals_dict = _GlobalsDict(
+            __file__=dumper_path_str,
+            heap_file=heap_file_str,
+            str_len=str_len_int,
         )
-        result = gdb.parse_and_eval(
-            f"(char *)PyUnicode_AsUTF8({result_str_ptr})"
-        ).string()
-        return result
-
-    @staticmethod
-    def _inject_dumper_module(dumper_path: str) -> Pointer:
-        # Insert the path of the dumper module into `sys.path` in the inferior process.
-        sys_ptr = DumpPythonHeap.get_ptr('(void *) PyImport_ImportModule("sys")')
-        path_ptr = DumpPythonHeap.get_ptr(
-            f'(void *) PyObject_GetAttrString({sys_ptr}, "path")'
-        )
-        extra_path_ptr = DumpPythonHeap.get_ptr(
-            f'(void *) PyUnicode_FromString("{dumper_path}")'
-        )
-        gdb.parse_and_eval(f"(int) PyList_Insert({path_ptr}, 1, {extra_path_ptr})")
-
-        return DumpPythonHeap.get_ptr(
-            '(void*) PyImport_ImportModule("dumper_inferior")'
-        )
+        with (
+            closing(globals_dict) as globals_dict,
+            closing(_FP(dumper_path_str)) as fp,
+        ):
+            self._run_file(
+                fp=fp, dumper_path_str=dumper_path_str, globals_dict=globals_dict
+            )
+            return globals_dict.get_str("result") or "Error getting result"
 
     @staticmethod
-    def _call_dump_function(
-        dumper_module_ptr: int, heap_file_name: str, str_len: int
-    ) -> Pointer:
-        dump_heap_ptr = DumpPythonHeap.get_ptr(
-            f'(void *) PyObject_GetAttrString({dumper_module_ptr}, "dump_heap")'
+    def _run_file(*, fp: _FP, dumper_path_str: str, globals_dict: _GlobalsDict) -> None:
+        # Doc: https://docs.python.org/3/c-api/veryhigh.html#c.PyRun_File
+        Py_file_input = 257  # include/compile.h
+        locals_ptr = "(void*) 0"
+        r = _get_ptr(
+            f'(void*) PyRun_File({fp.ptr}, "{dumper_path_str}", {Py_file_input}, {globals_dict.ptr}, {locals_ptr})'
         )
-        return DumpPythonHeap.get_ptr(
-            f'(void *) PyObject_CallFunction({dump_heap_ptr}, "si", "{heap_file_name}", {str_len})'
-        )
-
-    @staticmethod
-    def get_ptr(expression: str) -> Pointer:
-        return int(gdb.parse_and_eval(expression))
+        if r == _NULL:
+            raise InjectorException("Error calling PyRun_File")
 
 
 DumpPythonHeap()
