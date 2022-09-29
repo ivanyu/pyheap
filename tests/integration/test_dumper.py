@@ -28,9 +28,13 @@ def test_dumper(tmp_path: Path) -> None:
     with open(heap_file, "r") as f:
         heap = json.load(f)
 
+    assert "metadata" in heap
     assert "threads" in heap
     assert "objects" in heap
     assert "types" in heap
+
+    assert heap["metadata"]["version"] == 1
+    assert "created_at" in heap["metadata"]
 
     types = heap["types"]
 
