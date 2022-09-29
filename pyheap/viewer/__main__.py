@@ -98,6 +98,7 @@ def objects_batch() -> JsonObject:
         obj = heap.objects[address]
         obj_json = obj.to_json()
         obj_json["type"] = heap.types[obj.type]
+        obj_json["inbound_references"] = list(heap.inbound_references[address])
         result.append(obj_json)
     return {"objects": result}
 
@@ -114,6 +115,7 @@ def api_object_get(address: str) -> JsonObject:
     obj = heap.objects[address_int]
     result = obj.to_json()
     result["type"] = heap.types[obj.type]
+    result["inbound_references"] = list(heap.inbound_references[address])
     return result
 
 
