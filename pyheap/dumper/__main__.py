@@ -24,9 +24,10 @@ def dump_heap(args: argparse.Namespace) -> None:
     print(f"Dumping heap from process {args.pid} into {abs_file_path}")
     print(f"Max length of string representation is {args.string_length}")
 
-    code_path = Path(__file__).parent
-    injector_path = code_path / "injector.py"
-    print(f"Code path: {code_path}")
+    module_path = Path(__file__).parent
+    dumper_inferior_path = module_path / "dumper_inferior.py"
+    injector_path = module_path / "injector.py"
+    print(f"Code path: {dumper_inferior_path}")
     print(f"Injector path: {injector_path}")
 
     cmd = [
@@ -45,7 +46,7 @@ def dump_heap(args: argparse.Namespace) -> None:
         "-ex",
         "set print elements 0",
         "-ex",
-        f'print $dump_python_heap("{code_path}", "{abs_file_path}", {args.string_length})',
+        f'print $dump_python_heap("{dumper_inferior_path}", "{abs_file_path}", {args.string_length})',
         "-ex",
         "detach",
         "-ex",
