@@ -126,6 +126,9 @@ def _dump_heap(heap_file: str, str_len: int) -> str:
 def _get_gc_tracked_objects() -> List[Any]:
     invisible_objects = set()
     invisible_objects.add(id(invisible_objects))
+    invisible_objects.add(id(heap_file))
+    invisible_objects.add(id(str_len))
+    invisible_objects.add(id(result))
     invisible_objects.add(id(_PyObject))
     invisible_objects.add(id(_dump_heap))
     invisible_objects.add(id(_all_objects))
