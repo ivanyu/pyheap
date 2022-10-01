@@ -29,11 +29,11 @@ $ python -m pyheap.dumper -h
 ```
 for additional options.
 
-### Browser-based viewer
+### Browser-based UI
 
-View the heap dump with the browser-based viewer:
+View the heap dump with the browser-based UI:
 ```bash
-python -m pyheap.viewer --file heap.json.gz
+python -m pyheap.ui --file heap.json.gz
 ```
 (in the repo root directory) and open [http://127.0.0.1:5000](http://127.0.0.1:5000).
 
