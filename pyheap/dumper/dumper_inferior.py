@@ -43,7 +43,7 @@ class _PyObject(NamedTuple):
 
 
 def _dump_heap(heap_file: str, str_len: int) -> str:
-    start = time.monotonic()
+    global_start = time.monotonic()
     visited = 0
 
     gc_tracked_objects = _get_gc_tracked_objects()
@@ -51,8 +51,11 @@ def _dump_heap(heap_file: str, str_len: int) -> str:
     messages = []
     threads, locals_ = _get_threads_and_locals(messages)
 
+    local_start = time.monotonic()
     all_objects = _all_objects(gc_tracked_objects, locals_)
+    all_objects_duration = time.monotonic() - local_start
 
+    local_start = time.monotonic()
     open_func = gzip.open if heap_file.endswith(".gz") else open
     with open_func(heap_file, "wb") as f:
         f.write("{\n".encode("utf-8"))
@@ -106,8 +109,15 @@ def _dump_heap(heap_file: str, str_len: int) -> str:
         f.write(json.dumps(types, indent=2).encode("utf-8"))
 
         f.write("\n}".encode("utf-8"))
+    writing_duration = time.monotonic() - local_start
 
-    result = f"Heap dumped to {heap_file}. Visited {visited} objects. Took {(time.monotonic() - start):.3f} seconds."
+    result = (
+        f"Heap dumped to {heap_file}. "
+        + f"Visited {visited} objects. "
+        + f"Took {(time.monotonic() - global_start):.3f} seconds total, "
+        + f"{all_objects_duration:.3f} seconds collecting objects, "
+        + f"{writing_duration:.3f} seconds writing file."
+    )
     if messages:
         result += "\n" + "\n".join(messages) + "\n"
     return result
@@ -116,6 +126,9 @@ def _dump_heap(heap_file: str, str_len: int) -> str:
 def _get_gc_tracked_objects() -> List[Any]:
     invisible_objects = set()
     invisible_objects.add(id(invisible_objects))
+    invisible_objects.add(id(heap_file))
+    invisible_objects.add(id(str_len))
+    invisible_objects.add(id(result))
     invisible_objects.add(id(_PyObject))
     invisible_objects.add(id(_dump_heap))
     invisible_objects.add(id(_all_objects))
