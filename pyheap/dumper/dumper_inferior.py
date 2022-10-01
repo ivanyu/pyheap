@@ -44,7 +44,7 @@ str_len: int
 result = None
 
 
-def _dump_heap(heap_file: str, str_len: int) -> str:
+def _dump_heap() -> str:
     global_start = time.monotonic()
     visited = 0
 
@@ -248,7 +248,7 @@ _shadowed_dict_orig = inspect._shadowed_dict
 _check_class_orig = inspect._check_class
 
 try:
-    result = _dump_heap(heap_file, str_len)
+    result = _dump_heap()
 except:
     print(traceback.format_exc())
     result = traceback.format_exc()
