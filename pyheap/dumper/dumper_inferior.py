@@ -22,6 +22,7 @@ import threading
 import time
 import traceback
 from typing import List, Any, NamedTuple, Dict, Tuple
+import inspect
 
 """
 This module is executed in the context of the inferior.
@@ -38,6 +39,7 @@ result = None
 class _PyObject(NamedTuple):
     obj: Any
     referents: List[Any]
+    attrs: Dict[str, id]
 
 
 def _dump_heap(heap_file: str, str_len: int) -> str:
@@ -71,7 +73,7 @@ def _dump_heap(heap_file: str, str_len: int) -> str:
 
         f.write('  "objects": {\n'.encode("utf-8"))
         first_iteration = True
-        for obj, referents in all_objects:
+        for obj, referents, attrs in all_objects:
             visited += 1
 
             type_ = type(obj)
@@ -93,6 +95,7 @@ def _dump_heap(heap_file: str, str_len: int) -> str:
                 "type": id(type_),
                 "size": sys.getsizeof(obj),
                 "str": str_,
+                "attrs": attrs,
                 "referents": [id(r) for r in referents],
             }
             f.write(f'    "{id(obj)}": '.encode("utf-8"))
@@ -117,6 +120,8 @@ def _get_gc_tracked_objects() -> List[Any]:
     invisible_objects.add(id(_dump_heap))
     invisible_objects.add(id(_all_objects))
     invisible_objects.add(id(_get_threads_and_locals))
+    invisible_objects.add(id(_shadowed_dict_orig))
+    invisible_objects.add(id(_check_class_orig))
 
     return [o for o in gc.get_objects() if id(o) not in invisible_objects]
 
@@ -169,25 +174,48 @@ def _all_objects(gc_tracked_objects: List[Any], locals_: List[Any]) -> List[_PyO
     to_visit.extend(locals_)
     result = []
 
+    from functools import cache
+
+    inspect._shadowed_dict = cache(_shadowed_dict_orig)
+    inspect._check_class = cache(_check_class_orig)
+    invisible_objects = set()
+    invisible_objects.add(id(inspect._shadowed_dict))
+    invisible_objects.add(id(inspect._check_class))
+
     while len(to_visit) > 0:
         obj = to_visit.pop()
         obj_id = id(obj)
 
-        if obj_id in seen_ids:
+        if obj_id in seen_ids or obj_id in invisible_objects:
             continue
 
         seen_ids.add(obj_id)
         # Self-references here are fine.
         referents = gc.get_referents(obj)
-        obj = _PyObject(obj=obj, referents=referents)
-        result.append(obj)
+        pyobj = _PyObject(obj=obj, referents=referents, attrs={})
+        result.append(pyobj)
+
+        for attr in dir(obj):
+            try:
+                attr_value = inspect.getattr_static(obj, attr)
+                pyobj.attrs[attr] = id(attr_value)
+                to_visit.append(attr_value)
+            except (AttributeError, ValueError):
+                pass
+
         to_visit.extend(referents)
 
     return result
 
+
+_shadowed_dict_orig = inspect._shadowed_dict
+_check_class_orig = inspect._check_class
 
 try:
     result = _dump_heap(heap_file, str_len)
 except:
     print(traceback.format_exc())
     result = traceback.format_exc()
+finally:
+    inspect._shadowed_dict = _shadowed_dict_orig
+    inspect._check_class = _check_class_orig
