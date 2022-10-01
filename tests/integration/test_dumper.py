@@ -16,7 +16,12 @@
 import json
 import subprocess
 from pathlib import Path
-from typing import Mapping, Any
+from typing import Mapping, Any, Collection
+
+
+_ATTRS_FOR_INT = dir(1)
+_ATTRS_FOR_FLOAT = dir(1.0)
+_ATTRS_FOR_STR = dir("")
 
 
 def test_dumper(tmp_path: Path) -> None:
@@ -69,19 +74,20 @@ def test_dumper(tmp_path: Path) -> None:
         "runpy",
     }
     _assert_object(
-        heap,
-        frame["locals"]["a"],
-        {
+        heap=heap,
+        addr=frame["locals"]["a"],
+        expected={
             "type": _find_type_by_name(types, "int"),
             "size": 28,
             "str": "42",
             "referents": [],
         },
+        expected_attrs=_ATTRS_FOR_INT,
     )
     _assert_object(
-        heap,
-        frame["locals"]["dumper_path"],
-        {
+        heap=heap,
+        addr=frame["locals"]["dumper_path"],
+        expected={
             "type": _find_type_by_name(types, "str"),
             "size": 113,
             "str": str(
@@ -92,6 +98,7 @@ def test_dumper(tmp_path: Path) -> None:
             ),
             "referents": [],
         },
+        expected_attrs=_ATTRS_FOR_STR,
     )
     assert _get_object(heap, frame["locals"]["runpy"])["type"] == _find_type_by_name(
         types, "module"
@@ -103,24 +110,26 @@ def test_dumper(tmp_path: Path) -> None:
     assert frame["name"] == "function2"
     assert set(frame["locals"].keys()) == {"a", "b"}
     _assert_object(
-        heap,
-        frame["locals"]["a"],
-        {
+        heap=heap,
+        addr=frame["locals"]["a"],
+        expected={
             "type": _find_type_by_name(types, "int"),
             "size": 28,
             "str": "42",
             "referents": [],
         },
+        expected_attrs=_ATTRS_FOR_INT,
     )
     _assert_object(
-        heap,
-        frame["locals"]["b"],
-        {
+        heap=heap,
+        addr=frame["locals"]["b"],
+        expected={
             "type": _find_type_by_name(types, "str"),
             "size": 53,
             "str": "leaf",
             "referents": [],
         },
+        expected_attrs=_ATTRS_FOR_STR,
     )
 
     frame = main_thread["stack_trace"][5]
@@ -129,34 +138,37 @@ def test_dumper(tmp_path: Path) -> None:
     assert frame["name"] == "function1"
     assert set(frame["locals"].keys()) == {"a", "b", "c"}
     _assert_object(
-        heap,
-        frame["locals"]["a"],
-        {
+        heap=heap,
+        addr=frame["locals"]["a"],
+        expected={
             "type": _find_type_by_name(types, "int"),
             "size": 28,
             "str": "42",
             "referents": [],
         },
+        expected_attrs=_ATTRS_FOR_INT,
     )
     _assert_object(
-        heap,
-        frame["locals"]["b"],
-        {
+        heap=heap,
+        addr=frame["locals"]["b"],
+        expected={
             "type": _find_type_by_name(types, "str"),
             "size": 53,
             "str": "leaf",
             "referents": [],
         },
+        expected_attrs=_ATTRS_FOR_STR,
     )
     _assert_object(
-        heap,
-        frame["locals"]["c"],
-        {
+        heap=heap,
+        addr=frame["locals"]["c"],
+        expected={
             "type": _find_type_by_name(types, "float"),
             "size": 24,
             "str": "12.5",
             "referents": [],
         },
+        expected_attrs=_ATTRS_FOR_FLOAT,
     )
 
     frame = main_thread["stack_trace"][6]
@@ -189,14 +201,15 @@ def test_dumper(tmp_path: Path) -> None:
         "function1",
     }
     _assert_object(
-        heap,
-        frame["locals"]["some_string"],
-        {
+        heap=heap,
+        addr=frame["locals"]["some_string"],
+        expected={
             "type": _find_type_by_name(types, "str"),
             "size": 60,
             "str": "hello world",
             "referents": [],
         },
+        expected_attrs=_ATTRS_FOR_STR,
     )
 
     obj = _get_object(heap, frame["locals"]["some_list"])
@@ -230,14 +243,15 @@ def test_dumper(tmp_path: Path) -> None:
         "local_2",
     }
     _assert_object(
-        heap,
-        frame["locals"]["local_1"],
-        {
+        heap=heap,
+        addr=frame["locals"]["local_1"],
+        expected={
             "type": _find_type_by_name(types, "str"),
             "size": 62,
             "str": "local_1 value",
             "referents": [],
         },
+        expected_attrs=_ATTRS_FOR_STR,
     )
 
     obj = _get_object(heap, frame["locals"]["local_2"])
@@ -292,11 +306,19 @@ def _get_object(heap: Mapping[str, Any], addr: int) -> Mapping[str, Any]:
 
 
 def _assert_object(
-    heap: Mapping[str, Any], addr: int, expected: Mapping[str, Any]
+    *,
+    heap: Mapping[str, Any],
+    addr: int,
+    expected: Mapping[str, Any],
+    expected_attrs: Collection[str]
 ) -> None:
     actual = dict(heap["objects"][str(addr)])
     expected_with_adds = dict(expected)
     expected_with_adds["address"] = addr
+
+    assert set(actual["attrs"].keys()) == set(expected_attrs)
+    del actual["attrs"]
+
     assert actual == expected_with_adds
 
 
