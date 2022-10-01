@@ -168,7 +168,7 @@ class Pagination:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Heap viewer.", allow_abbrev=False)
+    parser = argparse.ArgumentParser(description="Heap viewer UI.", allow_abbrev=False)
     parser.add_argument("--file", "-f", type=str, required=True, help="heap file name")
     args = parser.parse_args()
 
