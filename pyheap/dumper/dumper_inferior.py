@@ -17,16 +17,24 @@ from __future__ import annotations
 import gc
 import gzip
 import json
+from json.encoder import py_encode_basestring
 import sys
 import threading
 import time
 import traceback
-from typing import List, Any, NamedTuple, Dict, Tuple
+from typing import List, Any, Dict, Tuple
 import inspect
+import io
+from functools import cache
 
 """
 This module is executed in the context of the inferior.
 """
+
+# This file has some optimizations to reduce the number of object allocations and boost speed,
+# which results in more obscure code. Please, when you try to improve the code,
+# make sure you're making the right trade-off with the performance.
+
 
 # Inputs:
 heap_file: str
@@ -34,12 +42,6 @@ str_len: int
 
 # Output:
 result = None
-
-
-class _PyObject(NamedTuple):
-    obj: Any
-    referents: List[Any]
-    attrs: Dict[str, id]
 
 
 def _dump_heap(heap_file: str, str_len: int) -> str:
@@ -52,7 +54,7 @@ def _dump_heap(heap_file: str, str_len: int) -> str:
     threads, locals_ = _get_threads_and_locals(messages)
 
     local_start = time.monotonic()
-    all_objects = _all_objects(gc_tracked_objects, locals_)
+    object_jsons, types = _all_objects_jsons_and_types(gc_tracked_objects, locals_)
     all_objects_duration = time.monotonic() - local_start
 
     local_start = time.monotonic()
@@ -72,38 +74,18 @@ def _dump_heap(heap_file: str, str_len: int) -> str:
         f.write(json.dumps(threads, indent=2).encode("utf-8"))
         f.write(",\n".encode("utf-8"))
 
-        types = {}
-
         f.write('  "objects": {\n'.encode("utf-8"))
         first_iteration = True
-        for obj, referents, attrs in all_objects:
+        for obj_str in object_jsons:
             visited += 1
-
-            type_ = type(obj)
-            types[str(id(type_))] = type_.__name__
 
             if not first_iteration:
                 f.write(",\n".encode("utf-8"))
             else:
                 first_iteration = False
 
-            try:
-                str_ = str(obj)
-                if str_len > -1:
-                    str_ = str_[:str_len]
-            except:
-                str_ = "<ERROR on __str__>"
-            obj_dict = {
-                "address": id(obj),
-                "type": id(type_),
-                "size": sys.getsizeof(obj),
-                "str": str_,
-                "attrs": attrs,
-                "referents": [id(r) for r in referents],
-            }
-            f.write(f'    "{id(obj)}": '.encode("utf-8"))
-            f.write(json.dumps(obj_dict).encode("utf-8"))
-        f.write("  \n},\n".encode("utf-8"))
+            f.write(obj_str.encode("utf-8"))
+        f.write("\n  },\n".encode("utf-8"))
 
         f.write('  "types": '.encode("utf-8"))
         f.write(json.dumps(types, indent=2).encode("utf-8"))
@@ -129,9 +111,8 @@ def _get_gc_tracked_objects() -> List[Any]:
     invisible_objects.add(id(heap_file))
     invisible_objects.add(id(str_len))
     invisible_objects.add(id(result))
-    invisible_objects.add(id(_PyObject))
     invisible_objects.add(id(_dump_heap))
-    invisible_objects.add(id(_all_objects))
+    invisible_objects.add(id(_all_objects_jsons_and_types))
     invisible_objects.add(id(_get_threads_and_locals))
     invisible_objects.add(id(_shadowed_dict_orig))
     invisible_objects.add(id(_check_class_orig))
@@ -180,14 +161,15 @@ def _get_threads_and_locals(
     return stack_traces, all_locals
 
 
-def _all_objects(gc_tracked_objects: List[Any], locals_: List[Any]) -> List[_PyObject]:
+def _all_objects_jsons_and_types(
+    gc_tracked_objects: List[Any], locals_: List[Any]
+) -> Tuple[List[str], Dict[str, str]]:
     seen_ids = set()
     to_visit = []
     to_visit.extend(gc_tracked_objects)
     to_visit.extend(locals_)
-    result = []
-
-    from functools import cache
+    result_objects = []
+    result_types = {}
 
     inspect._shadowed_dict = cache(_shadowed_dict_orig)
     inspect._check_class = cache(_check_class_orig)
@@ -201,24 +183,65 @@ def _all_objects(gc_tracked_objects: List[Any], locals_: List[Any]) -> List[_PyO
 
         if obj_id in seen_ids or obj_id in invisible_objects:
             continue
-
         seen_ids.add(obj_id)
+
+        type_ = type(obj)
+        result_types[str(id(type_))] = type_.__name__
+
         # Self-references here are fine.
         referents = gc.get_referents(obj)
-        pyobj = _PyObject(obj=obj, referents=referents, attrs={})
-        result.append(pyobj)
+        to_visit.extend(referents)
 
+        try:
+            str_ = str(obj)
+            if str_len > -1:
+                str_ = str_[:str_len]
+        except:
+            str_ = "<ERROR on __str__>"
+
+        # Format:
+        # {
+        #     "address": id(obj),
+        #     "type": id(type_),
+        #     "size": sys.getsizeof(obj),
+        #     "str": str_,
+        #     "attrs": {"aaa": id(aaa_value), ...},
+        #     "referents": [id(r) for r in referents],
+        # }
+
+        s = io.StringIO()
+        s.write(f'    "{id(obj)}": ')
+        s.write("{")
+        s.write(f'"address": {id(obj)}, ')
+        s.write(f'"type": {id(type_)}, ')
+        s.write(f'"size": {sys.getsizeof(obj)}, ')
+        s.write(f'"str": {py_encode_basestring(str_)}, ')
+        s.write('"attrs": {')
+        first_iteration = True
         for attr in dir(obj):
             try:
                 attr_value = inspect.getattr_static(obj, attr)
-                pyobj.attrs[attr] = id(attr_value)
+
+                if first_iteration:
+                    first_iteration = False
+                else:
+                    s.write(", ")
+                s.write(f'"{attr}": {id(attr_value)}')
+
                 to_visit.append(attr_value)
             except (AttributeError, ValueError):
                 pass
+        s.write("},")
 
-        to_visit.extend(referents)
+        s.write('"referents": [')
+        s.write(", ".join(str(id(r)) for r in referents))
+        s.write("]")
 
-    return result
+        s.write("}")
+
+        result_objects.append(s.getvalue())
+
+    return result_objects, result_types
 
 
 _shadowed_dict_orig = inspect._shadowed_dict
