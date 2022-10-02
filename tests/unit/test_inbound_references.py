@@ -19,7 +19,14 @@ from pyheap.heap import Heap
 def test_minimal() -> None:
     heap_dict = {
         "objects": {
-            "1": {"address": 1, "type": None, "size": 0, "str": "", "referents": []},
+            "1": {
+                "address": 1,
+                "type": None,
+                "size": 0,
+                "str": "",
+                "attrs": {},
+                "referents": [],
+            },
         },
         "types": {},
     }
@@ -30,7 +37,14 @@ def test_minimal() -> None:
 def test_self_reference() -> None:
     heap_dict = {
         "objects": {
-            "1": {"address": 1, "type": None, "size": 0, "str": "", "referents": [1]},
+            "1": {
+                "address": 1,
+                "type": None,
+                "size": 0,
+                "str": "",
+                "attrs": {},
+                "referents": [1],
+            },
         },
         "types": {},
     }
@@ -50,9 +64,30 @@ def simple() -> None:
                 "str": "",
                 "referents": {2, 3},
             },
-            "2": {"address": 2, "type": None, "size": 0, "str": "", "referents": {4}},
-            "3": {"address": 3, "type": None, "size": 0, "str": "", "referents": {}},
-            "4": {"address": 4, "type": None, "size": 0, "str": "", "referents": {3}},
+            "2": {
+                "address": 2,
+                "type": None,
+                "size": 0,
+                "str": "",
+                "attrs": {},
+                "referents": {4},
+            },
+            "3": {
+                "address": 3,
+                "type": None,
+                "size": 0,
+                "str": "",
+                "attrs": {},
+                "referents": {},
+            },
+            "4": {
+                "address": 4,
+                "type": None,
+                "size": 0,
+                "str": "",
+                "attrs": {},
+                "referents": {3},
+            },
         },
         "types": {},
     }

@@ -41,7 +41,9 @@ python -m pyheap.ui --file heap.json.gz
 
 ![Heap view](doc/screenshot2.png)
 
-![Object view](doc/screenshot3.png)
+![Object view - Attributes](doc/screenshot3.png)
+
+![Object view - Referents](doc/screenshot4.png)
 
 ### Command-line heap analyzer
 
