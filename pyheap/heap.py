@@ -84,7 +84,8 @@ class PyObject:
     type: str
     size: int
     str_: str
-    referents: Set[int]
+    attrs: Dict[str, Address]
+    referents: Set[Address]
 
     @staticmethod
     def from_dict(obj_dict: Dict[str, Any]) -> PyObject:
@@ -93,6 +94,7 @@ class PyObject:
             type=obj_dict["type"],
             size=obj_dict["size"],
             str_=obj_dict["str"],
+            attrs=obj_dict["attrs"],
             referents=set(obj_dict["referents"]),
         )
 

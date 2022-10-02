@@ -82,6 +82,7 @@ def objects(address_str: str) -> str:
         tab_object_active=True,
         obj=obj,
         type=heap.types[obj.type],
+        objects=heap.objects,
         retained_heap=heap.object_retained_heap(address),
     )
 
