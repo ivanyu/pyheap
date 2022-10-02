@@ -21,12 +21,84 @@
 {% endblock %}
 
 {% block content %}
+
+{% macro render_object_link(address) -%}
+<a href="/objects/{{ address }}" title="Address: {{ address }}"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" class="bi bi-box-arrow-up-right" viewBox="0 0 16 16">
+    <path fill-rule="evenodd" d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>
+    <path fill-rule="evenodd" d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z"/></svg></a>
+{%- endmacro %}
+
+{% macro render_attribute(attr, address, str_) -%}
+<code>{{ attr }}</code> {{ render_object_link(address) }} <span class="inline-object-str text-muted">{{ objects[address].str_ }}</span>
+{%- endmacro %}
+
 <div id="object-panel">
     <p><strong>Address:</strong> {{ obj.address }}</p>
     <p><strong>Type:</strong> <code>{{ type }}</code></p>
     <p><strong>Size:</strong> {{ obj.size }} B</p>
     <p><strong>Retained heap:</strong> {{ retained_heap }} B</p>
     <p><strong>String representation:</strong> <span class="inline-object-str text-muted">{{ obj.str_ }}</span></p>
+
+    <div class="accordion">
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="panelAttributesMagic">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#panelAttributesMagic-collapse" aria-expanded="true"
+                        aria-controls="panelAttributesMagic-collapse">
+                    Magic attributes
+                </button>
+            </h2>
+            <div id="panelAttributesMagic-collapse" class="accordion-collapse collapse"
+                 aria-labelledby="panelAttributesMagic">
+                <div class="accordion-body">
+                    {% for attr, address in obj.attrs.items() %}
+                        {% if attr.startswith("__") and attr.endswith("__") %}
+                        {{ render_attribute(attr, address, objects[address].str_) }}<br/>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="panelAttributesPrivate">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#panelAttributesPrivate-collapse" aria-expanded="false"
+                        aria-controls="panelAttributesPrivate-collapse">
+                    Private attributes
+                </button>
+            </h2>
+            <div id="panelAttributesPrivate-collapse" class="accordion-collapse collapse"
+                 aria-labelledby="panelAttributesPrivate">
+                <div class="accordion-body">
+                    {% for attr, address in obj.attrs.items() %}
+                        {% if attr.startswith("_") and not attr.endswith("__") %}
+                        {{ render_attribute(attr, address, objects[address].str_) }}<br/>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="panelAttributesPublic">
+                <button class="accordion-button" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#panelAttributesPublic-collapse" aria-expanded="false"
+                        aria-controls="panelAttributesPublic-collapse">
+                    Public attributes
+                </button>
+            </h2>
+            <div id="panelAttributesPublic-collapse" class="accordion-collapse collapse show"
+                 aria-labelledby="panelAttributesPublic">
+                <div class="accordion-body">
+                    {% for attr, address in obj.attrs.items() %}
+                        {% if not attr.startswith("_") %}
+                        {{ render_attribute(attr, address, objects[address].str_) }}<br/>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="referent-tree-panel" class="text-truncate pt-3" style="overflow: scroll;">
         <strong>Referents:</strong><br/>
         <div id="referent-tree-spinner" class="spinner-border m-5" role="status">
