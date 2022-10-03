@@ -25,7 +25,7 @@ import traceback
 from typing import List, Any, Dict, Tuple
 import inspect
 import io
-from functools import cache
+from functools import lru_cache
 
 """
 This module is executed in the context of the inferior.
@@ -171,8 +171,8 @@ def _all_objects_jsons_and_types(
     result_objects = []
     result_types = {}
 
-    inspect._shadowed_dict = cache(_shadowed_dict_orig)
-    inspect._check_class = cache(_check_class_orig)
+    inspect._shadowed_dict = lru_cache(maxsize=None)(_shadowed_dict_orig)
+    inspect._check_class = lru_cache(maxsize=None)(_check_class_orig)
     invisible_objects = set()
     invisible_objects.add(id(inspect._shadowed_dict))
     invisible_objects.add(id(inspect._check_class))

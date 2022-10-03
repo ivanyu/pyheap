@@ -6,7 +6,7 @@ authors = ["Ivan Yurchenko <ivan@ivanyu.me>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">= 3.9"
+python = ">= 3.8"
 Flask = "^2.2.2"
 Jinja2 = "^3.1.2"
 

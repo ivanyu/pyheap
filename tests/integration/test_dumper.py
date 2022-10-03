@@ -215,7 +215,7 @@ def test_dumper(tmp_path: Path) -> None:
     obj = _get_object(heap, frame["locals"]["some_list"])
     assert obj["address"] == frame["locals"]["some_list"]
     assert obj["type"] == _find_type_by_name(types, "list")
-    assert obj["size"] in {120, 88}  # depends on Python minor version
+    assert obj["size"] in {120, 88, 80}  # depends on Python version
     assert obj["str"] == "[1, 2, 3]"
     assert {_get_object(heap, r)["str"] for r in obj["referents"]} == {"1", "2", "3"}
 
