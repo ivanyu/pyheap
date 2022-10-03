@@ -80,7 +80,7 @@ class _GlobalsDict:
 
     def close(self) -> None:
         # Doc: https://docs.python.org/3/c-api/refcounting.html#c.Py_DecRef
-        gdb.parse_and_eval(f"(void*) Py_DecRef({self.ptr})")
+        gdb.parse_and_eval(f"Py_DecRef({self.ptr})")
 
 
 class _FP:
