@@ -54,9 +54,8 @@ def dump_heap(args: argparse.Namespace) -> None:
         "-p",
         str(args.pid),
     ]
-    result = subprocess.run(cmd, capture_output=True, check=True, encoding="utf-8")
-    print(result.stdout)
-    print(result.stderr)
+    p = subprocess.Popen(cmd, shell=False)
+    p.communicate()
 
 
 if __name__ == "__main__":
