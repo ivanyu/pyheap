@@ -17,6 +17,7 @@ from __future__ import annotations
 import gc
 import gzip
 import json
+from contextlib import closing
 from json.encoder import py_encode_basestring
 import sys
 import threading
@@ -39,6 +40,7 @@ This module is executed in the context of the inferior.
 # Inputs:
 heap_file: str
 str_len: int
+progress_file: str
 
 # Output:
 result = None
@@ -54,7 +56,10 @@ def _dump_heap() -> str:
     threads, locals_ = _get_threads_and_locals(messages)
 
     local_start = time.monotonic()
-    object_jsons, types = _all_objects_jsons_and_types(gc_tracked_objects, locals_)
+    with closing(ProgressReporter(progress_file)) as progress_reporter:
+        object_jsons, types = _all_objects_jsons_and_types(
+            gc_tracked_objects, locals_, progress_reporter
+        )
     all_objects_duration = time.monotonic() - local_start
 
     local_start = time.monotonic()
@@ -116,6 +121,7 @@ def _get_gc_tracked_objects() -> List[Any]:
     invisible_objects.add(id(_get_threads_and_locals))
     invisible_objects.add(id(_shadowed_dict_orig))
     invisible_objects.add(id(_check_class_orig))
+    invisible_objects.add(id(ProgressReporter))
 
     return [o for o in gc.get_objects() if id(o) not in invisible_objects]
 
@@ -162,7 +168,9 @@ def _get_threads_and_locals(
 
 
 def _all_objects_jsons_and_types(
-    gc_tracked_objects: List[Any], locals_: List[Any]
+    gc_tracked_objects: List[Any],
+    locals_: List[Any],
+    progress_reporter: ProgressReporter,
 ) -> Tuple[List[str], Dict[str, str]]:
     seen_ids = set()
     to_visit = []
@@ -177,6 +185,9 @@ def _all_objects_jsons_and_types(
     invisible_objects.add(id(inspect._shadowed_dict))
     invisible_objects.add(id(inspect._check_class))
 
+    done = 0
+    progress_reporter.report(done, len(to_visit))
+
     while len(to_visit) > 0:
         obj = to_visit.pop()
         obj_id = id(obj)
@@ -184,6 +195,7 @@ def _all_objects_jsons_and_types(
         if obj_id in seen_ids or obj_id in invisible_objects:
             continue
         seen_ids.add(obj_id)
+        done += 1
 
         type_ = type(obj)
         result_types[str(id(type_))] = type_.__name__
@@ -240,8 +252,36 @@ def _all_objects_jsons_and_types(
         s.write("}")
 
         result_objects.append(s.getvalue())
+        progress_reporter.report(done, len(to_visit))
 
+    progress_reporter.report(done, len(to_visit))
     return result_objects, result_types
+
+
+class ProgressReporter:
+    _GRANULARITY = 1_000
+
+    def __init__(self, path: str) -> None:
+        self._f = open(path, "w")
+        self._started = time.monotonic()
+
+    def report(self, done: int, remain: int) -> None:
+        if done % ProgressReporter._GRANULARITY == 0:
+            self._f.seek(0)
+            self._f.truncate()
+            json.dump(
+                {
+                    "since_start_sec": time.monotonic() - self._started,
+                    "done": done,
+                    "remain": remain,
+                },
+                self._f,
+            )
+            self._f.write("\n")
+            self._f.flush()
+
+    def close(self) -> None:
+        self._f.close()
 
 
 _shadowed_dict_orig = inspect._shadowed_dict

@@ -13,7 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import os
 import sys
+import tempfile
 import time
 from pathlib import Path
 from threading import Thread, Event
@@ -55,11 +57,16 @@ def function3(a: int) -> None:
     )
     import runpy
 
+    progress_file_path = os.path.join(
+        tempfile.mkdtemp(prefix="pyheap-"), "progress.json"
+    )
+    Path(progress_file_path).touch(mode=0o622, exist_ok=False)  # rw--w--w-
     runpy.run_path(
         path_name=dumper_path,
         init_globals={
             "heap_file": heap_file,
             "str_len": 1000,
+            "progress_file": progress_file_path,
         },
     )
 

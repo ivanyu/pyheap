@@ -66,12 +66,13 @@ def test_dumper(tmp_path: Path) -> None:
 
     frame = main_thread["stack_trace"][3]
     assert frame["file"] == mock_inferior_file
-    assert frame["lineno"] == 58
+    assert frame["lineno"] == 64
     assert frame["name"] == "function3"
     assert set(frame["locals"].keys()) == {
         "a",
         "dumper_path",
         "runpy",
+        "progress_file_path",
     }
     _assert_object(
         heap=heap,
@@ -106,7 +107,7 @@ def test_dumper(tmp_path: Path) -> None:
 
     frame = main_thread["stack_trace"][4]
     assert frame["file"] == mock_inferior_file
-    assert frame["lineno"] == 68
+    assert frame["lineno"] == 75
     assert frame["name"] == "function2"
     assert set(frame["locals"].keys()) == {"a", "b"}
     _assert_object(
@@ -134,7 +135,7 @@ def test_dumper(tmp_path: Path) -> None:
 
     frame = main_thread["stack_trace"][5]
     assert frame["file"] == mock_inferior_file
-    assert frame["lineno"] == 72
+    assert frame["lineno"] == 79
     assert frame["name"] == "function1"
     assert set(frame["locals"].keys()) == {"a", "b", "c"}
     _assert_object(
@@ -173,7 +174,7 @@ def test_dumper(tmp_path: Path) -> None:
 
     frame = main_thread["stack_trace"][6]
     assert frame["file"] == mock_inferior_file
-    assert frame["lineno"] == 75
+    assert frame["lineno"] == 82
     assert frame["name"] == "<module>"
     assert set(frame["locals"].keys()) == {
         "__name__",
@@ -186,6 +187,8 @@ def test_dumper(tmp_path: Path) -> None:
         "__file__",
         "__cached__",
         "sys",
+        "os",
+        "tempfile",
         "time",
         "Path",
         "Thread",
@@ -235,7 +238,7 @@ def test_dumper(tmp_path: Path) -> None:
 
     frame = second_thread["stack_trace"][0]
     assert frame["file"] == mock_inferior_file
-    assert frame["lineno"] == 31
+    assert frame["lineno"] == 33
     assert frame["name"] == "_thread_inner"
     assert set(frame["locals"].keys()) == {
         "self",
@@ -262,7 +265,7 @@ def test_dumper(tmp_path: Path) -> None:
     assert {_get_object(heap, r)["str"] for r in obj["referents"]} == {"local_2 value"}
 
     assert second_thread["stack_trace"][1]["file"] == mock_inferior_file
-    assert second_thread["stack_trace"][1]["lineno"] == 34
+    assert second_thread["stack_trace"][1]["lineno"] == 36
     assert second_thread["stack_trace"][1]["name"] == "run"
     assert set(second_thread["stack_trace"][1]["locals"].keys()) == {
         "self",
