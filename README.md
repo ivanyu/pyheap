@@ -4,7 +4,11 @@ A heap dumper and analyzer for CPython based on GDB.
 
 ## Compatibility
 
-The dumper was tested with CPython 3.8, 3.9, and 3.10.
+The dumper is compatible with:
+- CPython 3.8;
+- CPython 3.9;
+- CPython 3.10;
+- CPython 3.11 (3.11.0rc2 at the moment).
 
 Some popular libraries were tested:
 - Django;
