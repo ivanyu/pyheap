@@ -101,7 +101,15 @@ class DumpPythonHeap(gdb.Function):
     def __init__(self) -> None:
         super(DumpPythonHeap, self).__init__("dump_python_heap")
 
-    def invoke(
+    def invoke(self, dumper_path: gdb.Value, heap_file: gdb.Value, str_len: gdb.Value) -> str:
+        try:
+            return self._invoke0(dumper_path, heap_file, str_len)
+        except Exception as e:
+            import traceback
+            traceback.print_exception(e)
+            raise
+
+    def _invoke0(
         self, dumper_path: gdb.Value, heap_file: gdb.Value, str_len: gdb.Value
     ) -> str:
         if str_len.type.name != "int":
