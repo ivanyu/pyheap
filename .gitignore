@@ -129,4 +129,4 @@ dmypy.json
 .pyre/
 
 .pytest_cache/
-/.idea/
+.idea/

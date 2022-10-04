@@ -21,7 +21,7 @@ from dataclasses import dataclass
 import pytest
 from pathlib import Path
 
-from pyheap.heap import RetainedHeap, RetainedHeapCache
+from ui.heap import RetainedHeap, RetainedHeapCache
 
 
 @dataclass

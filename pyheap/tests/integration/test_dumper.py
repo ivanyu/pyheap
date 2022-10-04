@@ -66,7 +66,7 @@ def test_dumper(tmp_path: Path) -> None:
 
     frame = main_thread["stack_trace"][3]
     assert frame["file"] == mock_inferior_file
-    assert frame["lineno"] == 64
+    assert frame["lineno"] == 61
     assert frame["name"] == "function3"
     assert set(frame["locals"].keys()) == {
         "a",
@@ -90,12 +90,9 @@ def test_dumper(tmp_path: Path) -> None:
         addr=frame["locals"]["dumper_path"],
         expected={
             "type": _find_type_by_name(types, "str"),
-            "size": 113,
+            "size": 110,
             "str": str(
-                Path(__file__).parent.parent.parent
-                / "pyheap"
-                / "dumper"
-                / "dumper_inferior.py"
+                Path(__file__).parent.parent.parent / "src" / "dumper_inferior.py"
             ),
             "referents": [],
         },
@@ -107,7 +104,7 @@ def test_dumper(tmp_path: Path) -> None:
 
     frame = main_thread["stack_trace"][4]
     assert frame["file"] == mock_inferior_file
-    assert frame["lineno"] == 75
+    assert frame["lineno"] == 72
     assert frame["name"] == "function2"
     assert set(frame["locals"].keys()) == {"a", "b"}
     _assert_object(
@@ -135,7 +132,7 @@ def test_dumper(tmp_path: Path) -> None:
 
     frame = main_thread["stack_trace"][5]
     assert frame["file"] == mock_inferior_file
-    assert frame["lineno"] == 79
+    assert frame["lineno"] == 76
     assert frame["name"] == "function1"
     assert set(frame["locals"].keys()) == {"a", "b", "c"}
     _assert_object(
@@ -174,7 +171,7 @@ def test_dumper(tmp_path: Path) -> None:
 
     frame = main_thread["stack_trace"][6]
     assert frame["file"] == mock_inferior_file
-    assert frame["lineno"] == 82
+    assert frame["lineno"] == 79
     assert frame["name"] == "<module>"
     assert set(frame["locals"].keys()) == {
         "__name__",

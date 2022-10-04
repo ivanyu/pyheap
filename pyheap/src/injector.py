@@ -101,16 +101,27 @@ class DumpPythonHeap(gdb.Function):
     def __init__(self) -> None:
         super(DumpPythonHeap, self).__init__("dump_python_heap")
 
-    def invoke(self, dumper_path: gdb.Value, heap_file: gdb.Value, str_len: gdb.Value, progress_file: gdb.Value) -> str:
+    def invoke(
+        self,
+        dumper_path: gdb.Value,
+        heap_file: gdb.Value,
+        str_len: gdb.Value,
+        progress_file: gdb.Value,
+    ) -> str:
         try:
             return self._invoke0(dumper_path, heap_file, str_len, progress_file)
         except Exception as e:
             import traceback
+
             traceback.print_exception(e)
             raise
 
     def _invoke0(
-        self, dumper_path: gdb.Value, heap_file: gdb.Value, str_len: gdb.Value, progress_file: gdb.Value
+        self,
+        dumper_path: gdb.Value,
+        heap_file: gdb.Value,
+        str_len: gdb.Value,
+        progress_file: gdb.Value,
     ) -> str:
         if str_len.type.name != "int":
             raise ValueError("str_len must be int")
@@ -125,10 +136,7 @@ class DumpPythonHeap(gdb.Function):
             str_len=str_len_int,
             progress_file=progress_file_str,
         )
-        with (
-            closing(globals_dict) as globals_dict,
-            closing(_FP(dumper_path_str)) as fp,
-        ):
+        with closing(globals_dict) as globals_dict, closing(_FP(dumper_path_str)) as fp:
             self._run_file(
                 fp=fp, dumper_path_str=dumper_path_str, globals_dict=globals_dict
             )

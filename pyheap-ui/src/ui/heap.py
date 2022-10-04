@@ -81,7 +81,7 @@ class RetainedHeap:
 @dataclass
 class PyObject:
     address: int
-    type: str
+    type: int
     size: int
     str_: str
     attrs: Dict[str, Address]

@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "pyheap-ui"
+version = "0.1.0"
+description = ""
+authors = ["Ivan Yurchenko <ivan@ivanyu.me>"]
+license = "Apache License 2.0"
+readme = "README.md"
+packages = [{include = "pyheap_ui"}]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+Flask = "^2.2.2"
+Jinja2 = "^3.1.2"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.1"
+black = "^22.6"
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]
+pythonpath = ["src"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
