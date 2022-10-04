@@ -50,10 +50,7 @@ some_tuple = ("a", "b", "c")
 
 def function3(a: int) -> None:
     dumper_path = str(
-        Path(__file__).parent.parent.parent.parent
-        / "pyheap"
-        / "dumper"
-        / "dumper_inferior.py"
+        Path(__file__).parent.parent.parent.parent / "src" / "dumper_inferior.py"
     )
     import runpy
 

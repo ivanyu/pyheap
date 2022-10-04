@@ -18,11 +18,11 @@ import gzip
 import json
 import time
 import math
-from typing import Optional, List
-
+from typing import Optional
 from flask import Flask, render_template, abort, request
+from .heap import Heap, provide_retained_heap_with_caching, JsonObject
+from .pagination import Pagination
 
-from pyheap.heap import Heap, provide_retained_heap_with_caching, JsonObject
 
 app = Flask(__name__)
 heap: Optional[Heap] = None
@@ -66,13 +66,8 @@ def heap() -> str:
     )
 
 
-@app.route("/objects/<address_str>")
-def objects(address_str: str) -> str:
-    address = -1
-    try:
-        address = int(address_str)
-    except ValueError:
-        abort(400)
+@app.route("/objects/<int:address>")
+def objects(address: int) -> str:
     if address not in heap.objects:
         abort(404)
 
@@ -97,75 +92,23 @@ def objects_batch() -> JsonObject:
         if address not in heap.objects:
             abort(404)
         obj = heap.objects[address]
-        obj_json = obj.to_json()
+        obj_json = dict(obj.to_json())
         obj_json["type"] = heap.types[obj.type]
         obj_json["inbound_references"] = list(heap.inbound_references[address])
         result.append(obj_json)
     return {"objects": result}
 
 
-@app.route("/api/objects/<address>")
-def api_object_get(address: str) -> JsonObject:
-    try:
-        address_int = int(address)
-    except ValueError:
-        abort(400)
-    if address_int not in heap.objects:
+@app.route("/api/objects/<int:address>")
+def api_object_get(address: int) -> JsonObject:
+    if address not in heap.objects:
         abort(404)
 
-    obj = heap.objects[address_int]
-    result = obj.to_json()
+    obj = heap.objects[address]
+    result = dict(obj.to_json())
     result["type"] = heap.types[obj.type]
     result["inbound_references"] = list(heap.inbound_references[address])
     return result
-
-
-class Pagination:
-    _WINDOW = 3
-    _MIN_PAGES_TO_COLLAPSE = 15
-
-    def __init__(self, total_pages: int, page: int) -> None:
-        if total_pages < 1:
-            raise ValueError(f"Invalid total_pages: {total_pages}")
-        if page < 1 or page > total_pages:
-            raise ValueError(f"Invalid page number: {page}")
-        self._total_pages = total_pages
-        self._page = page
-
-    @property
-    def total_pages(self) -> int:
-        return self._total_pages
-
-    @property
-    def page(self) -> int:
-        return self._page
-
-    @property
-    def layout(self) -> List[Optional[int]]:
-        result = [None] + list(range(1, self._total_pages + 1))
-
-        if self._total_pages < self._MIN_PAGES_TO_COLLAPSE:
-            return result[1:]
-
-        right_distance = self._total_pages - self._page
-        if right_distance > self._WINDOW * 2:
-            del result[self._page + self._WINDOW : self._total_pages - self._WINDOW + 1]
-            result.insert(self._page + self._WINDOW, None)
-
-        left_distance = self._page - 1
-        if left_distance > self._WINDOW * 2:
-            del result[1 + self._WINDOW : self._page - self._WINDOW + 1]
-            result.insert(1 + self._WINDOW, None)
-
-        return result[1:]
-
-    @property
-    def prev_enabled(self) -> bool:
-        return self._page > 1
-
-    @property
-    def next_enabled(self) -> bool:
-        return self._page < self._total_pages
 
 
 if __name__ == "__main__":

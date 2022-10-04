@@ -2,6 +2,10 @@
 
 A heap dumper and analyzer for CPython based on GDB.
 
+The product consists of two parts:
+1. The zero-dependency dumper script.
+2. The Flask-based UI for heap dump visualization.
+
 ## Compatibility
 
 The dumper is compatible with a target process running on:
@@ -24,22 +28,24 @@ Find the PID of a running CPython process you're interested in.
 
 Run:
 ```bash
-$ python -m pyheap.dumper --pid <pid> --file heap.json.gz
+$ python3 pyheap/src/pyheap_dumper.py --pid <pid> --file heap.json.gz
 ```
 
 See 
 ```bash
-$ python -m pyheap.dumper -h
+$ python3 pyheap/src/pyheap_dumper.py -h
 ```
 for additional options.
 
 ### Browser-based UI
 
-View the heap dump with the browser-based UI:
+You need a Python installation with Flask to run it. There's a Poetry environment for your convenience in [pyheap-ui/](pyheap-ui/).
+
+To view the heap dump with the browser-based UI, go to [pyheap-ui/](pyheap-ui/) and run:
 ```bash
-python -m pyheap.ui --file heap.json.gz
+PYTHONPATH=src poetry run python -m ui --file heap.json.gz
 ```
-(in the repo root directory) and open [http://127.0.0.1:5000](http://127.0.0.1:5000).
+and open [http://127.0.0.1:5000](http://127.0.0.1:5000).
 
 ![Thread view](doc/screenshot1.png)
 

@@ -23,7 +23,7 @@ import sys
 import time
 import logging
 
-from pyheap.heap import Heap, provide_retained_heap_with_caching
+from ui.heap import Heap, provide_retained_heap_with_caching
 
 LOG = logging.getLogger("analyzer")
 LOG.setLevel(logging.DEBUG)
