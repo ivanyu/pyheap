@@ -18,6 +18,8 @@ import json
 import random
 import string
 from dataclasses import dataclass
+from typing import Optional
+
 import pytest
 from pathlib import Path
 
@@ -26,7 +28,7 @@ from ui.heap import RetainedHeap, RetainedHeapCache
 
 @dataclass
 class HeapFile:
-    file_name: str
+    file_path: str
     digest: str
 
 
@@ -60,29 +62,36 @@ Namespaces are one honking great idea -- let's do more of those!
     with open(file_name, "wb") as f:
         f.write(content)
     m.update(content)
-    return HeapFile(file_name=file_name, digest=m.hexdigest())
+    return HeapFile(file_path=file_name, digest=m.hexdigest())
 
 
-def test_cache_not_exist(heap_file: HeapFile) -> None:
-    cache = RetainedHeapCache(heap_file.file_name)
+@pytest.mark.parametrize("set_cache_dir", [False, True])
+def test_cache_not_exist(
+    heap_file: HeapFile, set_cache_dir: bool, tmp_path: Path
+) -> None:
+    cache = RetainedHeapCache(
+        heap_file.file_path, cache_dir=_cache_dir(set_cache_dir, tmp_path)
+    )
     assert cache.load_if_cache_exists() is None
 
 
-def test_store(heap_file: HeapFile) -> None:
+@pytest.mark.parametrize("set_cache_dir", [False, True])
+def test_store(heap_file: HeapFile, set_cache_dir: bool, tmp_path: Path) -> None:
     retained_heap = RetainedHeap(
         object_retained_heap={111111: 42}, thread_retained_heap={"main": 100500}
     )
 
-    cache = RetainedHeapCache(heap_file.file_name)
+    cache_dir = _cache_dir(set_cache_dir, tmp_path)
+    cache = RetainedHeapCache(heap_file.file_path, cache_dir=cache_dir)
     cache.store(retained_heap)
 
-    cache_file = f"{heap_file.file_name}.{heap_file.digest}.{RetainedHeapCache.VERSION}.retained_heap"
-    with open(cache_file, "r") as f:
+    with open(_expected_cache_file(heap_file, cache_dir), "r") as f:
         cache_content = json.load(f)
     assert cache_content == {"objects": {"111111": 42}, "threads": {"main": 100500}}
 
 
-def test_load(heap_file: HeapFile) -> None:
+@pytest.mark.parametrize("set_cache_dir", [False, True])
+def test_load(heap_file: HeapFile, set_cache_dir: bool, tmp_path: Path) -> None:
     object_retained_heap = {111111: 42}
     thread_retained_heap = {"main": 100500}
     retained_heap = RetainedHeap(
@@ -90,15 +99,18 @@ def test_load(heap_file: HeapFile) -> None:
         thread_retained_heap=thread_retained_heap,
     )
 
-    cache_file = f"{heap_file.file_name}.{heap_file.digest}.{RetainedHeapCache.VERSION}.retained_heap"
-    with open(cache_file, "w") as f:
+    cache_dir = _cache_dir(set_cache_dir, tmp_path)
+    with open(_expected_cache_file(heap_file, cache_dir), "w") as f:
         json.dump({"objects": object_retained_heap, "threads": thread_retained_heap}, f)
 
-    cache = RetainedHeapCache(heap_file.file_name)
+    cache = RetainedHeapCache(heap_file.file_path, cache_dir=cache_dir)
     assert cache.load_if_cache_exists() == retained_heap
 
 
-def test_store_and_load(heap_file: HeapFile) -> None:
+@pytest.mark.parametrize("set_cache_dir", [False, True])
+def test_store_and_load(
+    heap_file: HeapFile, set_cache_dir: bool, tmp_path: Path
+) -> None:
     object_retained_heap = {111111: 42}
     thread_retained_heap = {"main": 100500}
     retained_heap = RetainedHeap(
@@ -106,8 +118,29 @@ def test_store_and_load(heap_file: HeapFile) -> None:
         thread_retained_heap=thread_retained_heap,
     )
 
-    cache = RetainedHeapCache(heap_file.file_name)
+    cache = RetainedHeapCache(
+        heap_file.file_path, cache_dir=_cache_dir(set_cache_dir, tmp_path)
+    )
     cache.store(retained_heap)
 
-    cache = RetainedHeapCache(heap_file.file_name)
+    cache = RetainedHeapCache(
+        heap_file.file_path, cache_dir=_cache_dir(set_cache_dir, tmp_path)
+    )
     assert cache.load_if_cache_exists() == retained_heap
+
+
+def _expected_cache_file(heap_file: HeapFile, cache_dir: Optional[str]) -> str:
+    suffix = f".{heap_file.digest}.{RetainedHeapCache.VERSION}.retained_heap"
+    if cache_dir is None:
+        return f"{heap_file.file_path}{suffix}"
+    else:
+        return str(Path(cache_dir) / f"{Path(heap_file.file_path).name}{suffix}")
+
+
+def _cache_dir(set_cache_dir: bool, tmp_path: Path) -> Optional[str]:
+    if set_cache_dir:
+        d = tmp_path / "retained-heap-cache"
+        d.mkdir(exist_ok=True)
+        return str(tmp_path / "retained-heap-cache")
+    else:
+        return None

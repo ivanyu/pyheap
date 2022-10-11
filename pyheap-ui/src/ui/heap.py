@@ -20,12 +20,14 @@ import dataclasses
 import hashlib
 import json
 import logging
+import os
 import random
 import sys
 import time
 from dataclasses import dataclass
 from functools import cached_property
 from multiprocessing import Pool
+from pathlib import Path
 from typing import Mapping, Any, Set, Dict, Collection, List, Tuple, Optional
 
 LOG = logging.getLogger("heap")
@@ -373,8 +375,9 @@ class RetainedHeapParallelCalculator(RetainedHeapCalculator):
 class RetainedHeapCache:
     VERSION = 1  # change when the algorithm changes
 
-    def __init__(self, heap_file_name: str) -> None:
-        self._file_name = heap_file_name
+    def __init__(self, heap_file_name: str, cache_dir: Optional[str] = None) -> None:
+        self._file_path = heap_file_name
+        self._cache_dir = cache_dir
 
     def load_if_cache_exists(self) -> Optional[RetainedHeap]:
         try:
@@ -393,9 +396,15 @@ class RetainedHeapCache:
 
     @property
     def _cache_file_name(self) -> str:
-        with open(self._file_name, "rb") as f:
+        with open(self._file_path, "rb") as f:
             digest = hashlib.sha1(f.read()).hexdigest()
-        return f"{self._file_name}.{digest}.{self.VERSION}.retained_heap"
+
+        suffix = f".{digest}.{self.VERSION}.retained_heap"
+        if self._cache_dir is None:
+            return f"{self._file_path}{suffix}"
+        else:
+            file_name = Path(self._file_path).name
+            return str(Path(self._cache_dir) / f"{file_name}{suffix}")
 
 
 @dataclass
@@ -516,7 +525,8 @@ class Heap:
 
 
 def provide_retained_heap_with_caching(heap_file_name: str, heap: Heap) -> RetainedHeap:
-    cache = RetainedHeapCache(heap_file_name)
+    cache_dir = os.getenv("PYHEAP_CACHE_DIR")
+    cache = RetainedHeapCache(heap_file_name=heap_file_name, cache_dir=cache_dir)
     retained_heap = cache.load_if_cache_exists()
     if retained_heap is not None:
         return retained_heap
