@@ -39,13 +39,7 @@ for additional options.
 
 ### Browser-based UI
 
-You need a Python installation with Flask to run it. There's a Poetry environment for your convenience in [pyheap-ui/](pyheap-ui/).
-
-To view the heap dump with the browser-based UI, go to [pyheap-ui/](pyheap-ui/) and run:
-```bash
-PYTHONPATH=src poetry run python -m ui --file heap.json.gz
-```
-and open [http://127.0.0.1:5000](http://127.0.0.1:5000).
+The browser-based PyHeap UI is a convenient way to explore heap dumps. It can show threads, objects with the most retained heap. It allows exploring individual objects as well.
 
 ![Thread view](doc/screenshot1.png)
 
@@ -54,6 +48,30 @@ and open [http://127.0.0.1:5000](http://127.0.0.1:5000).
 ![Object view - Attributes](doc/screenshot3.png)
 
 ![Object view - Referents](doc/screenshot4.png)
+
+#### Running with Docker
+
+Running the PyHeap UI with Docker is simple:
+
+```bash
+docker run -it --rm \
+  --userns=host --user=$(id -u):$(id -g) \
+  -v ${PWD}:/pyheap-workdir \
+  --name pyheap-ui -p 5000:5000 \
+  ghcr.io/ivanyu/pyheap-ui:main \
+  heap.json.gz
+```
+and open [http://127.0.0.1:5000](http://127.0.0.1:5000).
+
+#### Running as a Python program
+
+You need a Python installation with Flask to run it. There's a Poetry environment for your convenience in [pyheap-ui/](pyheap-ui/).
+
+To view the heap dump with the browser-based UI, go to [pyheap-ui/](pyheap-ui/) and run:
+```bash
+PYTHONPATH=src poetry run python -m ui --file heap.json.gz
+```
+and open [http://127.0.0.1:5000](http://127.0.0.1:5000).
 
 ### Command-line heap analyzer
 
