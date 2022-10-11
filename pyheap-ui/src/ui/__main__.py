@@ -16,6 +16,7 @@
 import argparse
 import gzip
 import json
+import os
 import time
 import math
 from typing import Optional
@@ -126,4 +127,5 @@ if __name__ == "__main__":
     heap = Heap(heap_dict)
     heap.set_retained_heap(provide_retained_heap_with_caching(args.file, heap))
 
-    app.run(debug=True)
+    host = os.environ.get("FLASK_SERVER_NAME")
+    app.run(debug=True, host=host)
