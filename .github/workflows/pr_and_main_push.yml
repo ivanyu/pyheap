@@ -26,6 +26,11 @@ jobs:
         working-directory: ./pyheap
         run: poetry install --no-interaction --no-root
 
+      - name: Check with Black
+        working-directory: ./pyheap
+        run: |
+          poetry run black --check .
+
       - name: Run tests
         working-directory: ./pyheap
         run: |
@@ -51,6 +56,11 @@ jobs:
       - name: Install dependencies for PyHeap
         working-directory: ./pyheap-ui
         run: poetry install --no-interaction --no-root
+
+      - name: Check with Black
+        working-directory: ./pyheap-ui
+        run: |
+          poetry run black --check .
 
       - name: Run tests for PyHeap
         working-directory: ./pyheap-ui
