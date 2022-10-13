@@ -14,6 +14,7 @@ EXPOSE 5000
 
 ENV FLASK_SERVER_NAME=0.0.0.0
 ENV PYTHONPATH=/pyheap
+ENV FLASK_DEBUG=false
 WORKDIR /pyheap-workdir
 ENTRYPOINT ["python3", "-m", "ui", "--file"]
 CMD []
