@@ -1,9 +1,11 @@
-name: Pull request and push to main checks
+name: Pull request, push to main, and release pipeline
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  release:
+    types: [published]
 jobs:
   run_tests_pyheap:
     name: Run tests for PyHeap
