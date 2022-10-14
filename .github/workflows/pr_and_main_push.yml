@@ -6,11 +6,11 @@ on:
     branches: [ main ]
 jobs:
   run_tests_pyheap:
+    name: Run tests for PyHeap
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.8", "3.9", "3.10"]
-    name: Run tests for PyHeap
     steps:
       - uses: actions/checkout@v3
 
@@ -36,12 +36,29 @@ jobs:
         run: |
           poetry run pytest -vv tests
 
+      - name: Build distribution
+        working-directory: ./pyheap
+        run: |
+          make clean dist
+
+  build_pyheap:
+    name: Build PyHeap distribution
+    runs-on: ubuntu-latest
+    needs: run_tests_pyheap
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Build distribution
+        working-directory: ./pyheap
+        run: |
+          make clean dist
+
   run_tests_pyheap_ui:
+    name: Run tests for PyHeap UI
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.9", "3.10"]
-    name: Run tests for PyHeap UI
     steps:
       - uses: actions/checkout@v3
 
