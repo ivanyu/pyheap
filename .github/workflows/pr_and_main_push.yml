@@ -1,9 +1,11 @@
-name: Pull request and push to main checks
+name: Pull request, push to main, and release pipeline
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  release:
+    types: [published]
 jobs:
   run_tests_pyheap:
     name: Run tests for PyHeap
@@ -114,7 +116,7 @@ jobs:
       - uses: docker/build-push-action@v3
         name: Build and push
         with:
-          push: ${{ github.event_name == 'push' }}
+          push: ${{ github.event_name == 'push' || github.event_name == 'release' }}
           context: "{{defaultContext}}:pyheap-ui"
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
