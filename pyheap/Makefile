@@ -23,7 +23,7 @@ dist: dist/pyheap-$(version).tar.gz
 
 dist/pyheap-$(version).tar.gz: src/dumper_inferior.py src/injector.py src/pyheap_dumper.py
 	mkdir -p dist
-	tar czf $@ $^
+	tar --transform='s/src\//pyheap\//g' -czf $@ $^
 
 clean:
 	rm -rf dist
