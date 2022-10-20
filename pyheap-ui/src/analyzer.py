@@ -17,13 +17,20 @@ from __future__ import annotations
 
 import argparse
 import json
-import gzip
+import mmap
 import shutil
 import sys
 import time
 import logging
 
-from ui.heap import Heap, provide_retained_heap_with_caching
+from pyheap_ui.heap import (
+    provide_retained_heap_with_caching,
+    InboundReferences,
+    objects_sorted_by_retained_heap,
+    threads_sorted_by_retained_heap,
+    total_heap_size,
+)
+from pyheap_ui.heap_reader import HeapReader
 
 LOG = logging.getLogger("analyzer")
 LOG.setLevel(logging.DEBUG)
@@ -37,13 +44,18 @@ LOG.addHandler(handler)
 def retained_heap(args: argparse.Namespace) -> None:
     start = time.monotonic()
     LOG.info("Loading file %s", args.file)
-    open_func = gzip.open if args.file.endswith(".gz") else open
-    with open_func(args.file, "r") as f:
-        heap_dict = json.load(f)
+
+    with open(args.file, "rb") as f:
+        mm = mmap.mmap(f.fileno(), length=0, access=mmap.ACCESS_READ)
+        reader = HeapReader(mm)
+        heap = reader.read()
+
     LOG.info("Loading file finished in %.2f seconds", time.monotonic() - start)
 
-    heap = Heap(heap_dict)
-    heap.set_retained_heap(provide_retained_heap_with_caching(args.file, heap))
+    inbound_references = InboundReferences(heap.objects)
+    retained_heap = provide_retained_heap_with_caching(
+        args.file, heap, inbound_references
+    )
 
     terminal_columns, _ = shutil.get_terminal_size()
 
@@ -57,11 +69,13 @@ def retained_heap(args: argparse.Namespace) -> None:
         )
     )
     print("-" * terminal_columns)
-    for obj, retained_heap in heap.objects_sorted_by_retained_heap()[: args.top_n]:
+    for addr, obj, obj_retained_heap in objects_sorted_by_retained_heap(
+        heap, retained_heap
+    )[: args.top_n]:
         type_ = heap.types[obj.type]
         print(
             row_format.format(
-                obj.address, type_, retained_heap, obj.str_[:room_for_str]
+                addr, type_, obj_retained_heap, obj.str_repr[:room_for_str]
             )
         )
 
@@ -70,11 +84,13 @@ def retained_heap(args: argparse.Namespace) -> None:
     row_format = "{:<50} | {:>18}"
     print(row_format.format("Thread", "Retained heap size"))
     print("-" * 71)
-    for thread_name, retained_heap in heap.threads_sorted_by_retained_heap():
-        print(row_format.format(thread_name, retained_heap))
+    for thread_name, thread_retained_heap in threads_sorted_by_retained_heap(
+        heap, retained_heap
+    ):
+        print(row_format.format(thread_name, thread_retained_heap))
 
     print()
-    print(f"Total heap size: {heap.total_heap_size} bytes")
+    print(f"Total heap size: {total_heap_size(heap)} bytes")
 
 
 parser = argparse.ArgumentParser(description="Analyzes heap files.", allow_abbrev=False)

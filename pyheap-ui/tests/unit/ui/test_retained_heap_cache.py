@@ -23,7 +23,7 @@ from typing import Optional
 import pytest
 from pathlib import Path
 
-from ui.heap import RetainedHeap, RetainedHeapCache
+from pyheap_ui.heap import RetainedHeap, RetainedHeapCache
 
 
 @dataclass

@@ -7,8 +7,8 @@ on:
   pull_request:
     branches: [ main ]
 jobs:
-  run_tests_pyheap:
-    name: Run tests for PyHeap
+  check_pyheap:
+    name: Run checks for PyHeap
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -30,39 +30,10 @@ jobs:
 
       - name: Check with Black
         working-directory: ./pyheap
-        run: |
-          poetry run black --check .
+        run: poetry run black --check .
 
-      - name: Run tests
-        working-directory: ./pyheap
-        run: |
-          poetry run pytest -vv tests
-
-      - name: Build distribution
-        working-directory: ./pyheap
-        run: |
-          make clean dist
-
-  build_pyheap:
-    name: Build PyHeap distribution and release if needed
-    runs-on: ubuntu-latest
-    needs: run_tests_pyheap
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Build distribution
-        working-directory: ./pyheap
-        run: |
-          make clean dist
-
-      - name: Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: ./pyheap/dist/pyheap-*.tar.gz
-
-  run_tests_pyheap_ui:
-    name: Run tests for PyHeap UI
+  check_and_test_pyheap_ui:
+    name: Run checks and tests for PyHeap UI
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -78,28 +49,94 @@ jobs:
       - name: Install Poetry
         uses: snok/install-poetry@v1.3.1
 
-      - name: Install dependencies for PyHeap
+      - name: Install dependencies
         working-directory: ./pyheap-ui
         run: poetry install --no-interaction --no-root
 
       - name: Check with Black
         working-directory: ./pyheap-ui
-        run: |
-          poetry run black --check .
+        run: poetry run black --check .
 
-      - name: Run tests for PyHeap
+      - name: Run tests for PyHeap UI
         working-directory: ./pyheap-ui
+        run: poetry run pytest -vv tests
+
+  integration_tests:
+    name: Run integration tests
+    runs-on: ubuntu-latest
+    needs:
+      - check_pyheap
+      - check_and_test_pyheap_ui
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10"]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1.3.1
+
+      - name: Install dependencies
+        working-directory: ./integration_tests
+        run: poetry install --no-interaction --no-root
+
+      - name: Check with Black
+        working-directory: ./integration_tests
+        run: poetry run black --check .
+
+      - name: Install PyHeap UI
+        working-directory: ./integration_tests
+        run: poetry run pip install -e ../pyheap-ui/
+
+      - name: Run integration tests
+        working-directory: ./integration_tests
+        run: poetry run pytest -vv
+
+  build_pyheap:
+    name: Build PyHeap distribution and release if needed
+    runs-on: ubuntu-latest
+    needs: integration_tests
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Build distribution
+        working-directory: ./pyheap
         run: |
-          poetry run pytest -vv tests
+          make clean dist
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: ./pyheap/dist/pyheap-*.tar.gz
 
   build_and_publish_pyheap_ui_docker_image:
     name: Build and publish PyHeap UI Docker image
     runs-on: ubuntu-latest
-    needs: run_tests_pyheap_ui
+    needs: integration_tests
     permissions:
       packages: write
       contents: read
     steps:
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - uses: actions/checkout@v3
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1.3.1
+
+      - name: Prepare Docker build
+        working-directory: ./pyheap-ui
+        run: make docker-prepare
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
@@ -123,6 +160,6 @@ jobs:
         name: Build and push
         with:
           push: ${{ github.event_name == 'push' || github.event_name == 'release' }}
-          context: "{{defaultContext}}:pyheap-ui"
+          context: ./pyheap-ui
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

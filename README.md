@@ -28,7 +28,7 @@ Find the PID of a running CPython process you're interested in.
 
 Run:
 ```bash
-$ python3 pyheap/src/pyheap_dumper.py --pid <pid> --file heap.json.gz
+$ python3 pyheap/src/pyheap_dumper.py --pid <pid> --file heap.pyheap
 ```
 
 See 
@@ -59,7 +59,7 @@ docker run -it --rm \
   -v ${PWD}:/pyheap-workdir \
   --name pyheap-ui -p 5000:5000 \
   ghcr.io/ivanyu/pyheap-ui:main \
-  heap.json.gz
+  heap.pyheap
 ```
 and open [http://127.0.0.1:5000](http://127.0.0.1:5000).
 
@@ -69,7 +69,7 @@ You need a Python installation with Flask to run it. There's a Poetry environmen
 
 To view the heap dump with the browser-based UI, go to [pyheap-ui/](pyheap-ui/) and run:
 ```bash
-PYTHONPATH=src poetry run python -m ui --file heap.json.gz
+PYTHONPATH=src poetry run python -m ui --file heap.pyheap
 ```
 and open [http://127.0.0.1:5000](http://127.0.0.1:5000).
 

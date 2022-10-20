@@ -29,7 +29,7 @@
 {%- endmacro %}
 
 {% macro render_attribute(attr, address, str_) -%}
-<code>{{ attr }}</code> {{ render_object_link(address) }} <span class="inline-object-str text-muted">{{ objects[address].str_ }}</span>
+<code>{{ attr }}</code> {{ render_object_link(address) }} <span class="inline-object-str text-muted">{{ objects[address].str_repr }}</span>
 {%- endmacro %}
 
 <div id="object-panel">
@@ -51,7 +51,7 @@
             <div id="panelAttributesMagic-collapse" class="accordion-collapse collapse"
                  aria-labelledby="panelAttributesMagic">
                 <div class="accordion-body">
-                    {% for attr, address in obj.attrs.items() %}
+                    {% for attr, address in obj.attributes.items() %}
                         {% if attr.startswith("__") and attr.endswith("__") %}
                         {{ render_attribute(attr, address, objects[address].str_) }}<br/>
                         {% endif %}
@@ -70,7 +70,7 @@
             <div id="panelAttributesPrivate-collapse" class="accordion-collapse collapse"
                  aria-labelledby="panelAttributesPrivate">
                 <div class="accordion-body">
-                    {% for attr, address in obj.attrs.items() %}
+                    {% for attr, address in obj.attributes.items() %}
                         {% if attr.startswith("_") and not attr.endswith("__") %}
                         {{ render_attribute(attr, address, objects[address].str_) }}<br/>
                         {% endif %}
@@ -89,7 +89,7 @@
             <div id="panelAttributesPublic-collapse" class="accordion-collapse collapse show"
                  aria-labelledby="panelAttributesPublic">
                 <div class="accordion-body">
-                    {% for attr, address in obj.attrs.items() %}
+                    {% for attr, address in obj.attributes.items() %}
                         {% if not attr.startswith("_") %}
                         {{ render_attribute(attr, address, objects[address].str_) }}<br/>
                         {% endif %}
@@ -116,7 +116,7 @@
 
 {% block script %}
 <script>
-    const rootAddr = {{ obj.address }};
+    const rootAddr = {{ address }};
 </script>
 <script src="/static/objects.js"></script>
 {% endblock %}

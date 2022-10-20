@@ -34,15 +34,15 @@
 <div id="main-panel">
 
 {% for thread in threads %}
-    <h3>{{ thread.thread_name }}</h3>
+    <h3>{{ thread.name }}</h3>
     <p style="font-size: 1em;">
-        {% if thread.alive %}
+        {% if thread.is_alive %}
         <span class="thread-attribute badge text-bg-success">Alive: true</span>
         {% else %}
         <span class="thread-attribute badge text-bg-dark">Alive: false</span>
         {% endif %}
 
-        {% if thread.daemon %}
+        {% if thread.is_daemon %}
         <span class="thread-attribute badge text-bg-light">Daemon: true</span>
         {% else %}
         <span class="thread-attribute badge text-bg-light">Daemon: false</span>
@@ -54,9 +54,9 @@
         <li class="list-group-item">
             <div>
                 <div>
-                    File <code>{{ frame.file }}}</code>,
+                    File <code>{{ frame.co_filename }}</code>,
                     line {{ frame.lineno }},
-                    in <code>{{ frame.name }}</code>
+                    in <code>{{ frame.co_name }}</code>
                 </div>
                 <div class="ps-3 text-truncate">
                     Locals:

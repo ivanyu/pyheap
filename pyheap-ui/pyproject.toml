@@ -4,8 +4,7 @@ version = "0.1.0"
 description = ""
 authors = ["Ivan Yurchenko <ivan@ivanyu.me>"]
 license = "Apache License 2.0"
-readme = "README.md"
-packages = [{include = "pyheap_ui"}]
+packages = [{include = "pyheap_ui", from = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.9"
