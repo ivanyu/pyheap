@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "pyheap"
+name = "pyheap-integration-tests"
 version = "0.1.0"
 description = ""
 authors = ["Ivan Yurchenko <ivan@ivanyu.me>"]
@@ -11,12 +11,7 @@ python = "^3.8"
 [tool.poetry.dev-dependencies]
 pytest = "^7.1"
 black = "^22.6"
-
-[tool.pytest.ini_options]
-addopts = [
-    "--import-mode=importlib",
-]
-pythonpath = ["src"]
+dateutils = "^0.6.12"
 
 [build-system]
 requires = ["poetry-core"]

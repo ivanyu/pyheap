@@ -13,86 +13,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from ui.heap import Heap
+from pyheap_ui.heap import InboundReferences
+from pyheap_ui.heap_reader import HeapObject
 
 
 def test_minimal() -> None:
-    heap_dict = {
-        "objects": {
-            "1": {
-                "address": 1,
-                "type": None,
-                "size": 0,
-                "str": "",
-                "attrs": {},
-                "referents": [],
-            },
-        },
-        "types": {},
+    objects = {
+        1: HeapObject(0, 0, set()),
     }
-    heap = Heap(heap_dict)
-    assert heap._inbound_references._inbound_references == {1: set()}
+    assert InboundReferences(objects)._inbound_references == {1: set()}
 
 
 def test_self_reference() -> None:
-    heap_dict = {
-        "objects": {
-            "1": {
-                "address": 1,
-                "type": None,
-                "size": 0,
-                "str": "",
-                "attrs": {},
-                "referents": [1],
-            },
-        },
-        "types": {},
+    objects = {
+        1: HeapObject(0, 0, {1}),
     }
-    heap = Heap(heap_dict)
-    assert heap._inbound_references._inbound_references == {1: {1}}
+    assert InboundReferences(objects)._inbound_references == {1: {1}}
 
 
 def simple() -> None:
     # 1 -> 2 -> 4
     #  \-> 3 <--|
-    heap_dict = {
-        "objects": {
-            "1": {
-                "address": 1,
-                "type": None,
-                "size": 0,
-                "str": "",
-                "referents": {2, 3},
-            },
-            "2": {
-                "address": 2,
-                "type": None,
-                "size": 0,
-                "str": "",
-                "attrs": {},
-                "referents": {4},
-            },
-            "3": {
-                "address": 3,
-                "type": None,
-                "size": 0,
-                "str": "",
-                "attrs": {},
-                "referents": {},
-            },
-            "4": {
-                "address": 4,
-                "type": None,
-                "size": 0,
-                "str": "",
-                "attrs": {},
-                "referents": {3},
-            },
-        },
-        "types": {},
+    objects = {
+        1: HeapObject(0, 0, {2, 3}),
+        2: HeapObject(0, 0, {4}),
+        3: HeapObject(0, 0, set()),
+        4: HeapObject(0, 0, {3}),
     }
-    heap = Heap(heap_dict)
-    assert heap._inbound_references == {
+    assert InboundReferences(objects)._inbound_references == {
         1: [],
         2: [1],
         3: [1, 4],

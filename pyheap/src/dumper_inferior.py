@@ -15,18 +15,19 @@
 #
 from __future__ import annotations
 import gc
-import gzip
 import json
 from contextlib import closing
-from json.encoder import py_encode_basestring
 import sys
 import threading
 import time
 import traceback
-from typing import List, Any, Dict, Tuple
+from types import FrameType
+from typing import List, Any, Dict, Tuple, BinaryIO
 import inspect
-import io
 from functools import lru_cache
+from datetime import datetime, timezone
+import struct
+from uuid import UUID, uuid4
 
 """
 This module is executed in the context of the inferior.
@@ -46,64 +47,92 @@ progress_file: str
 result = None
 
 
+class _HeapWriter:
+    _MAGIC = 123_000_321
+    _VERSION = 1
+
+    _BOOL_STRUCT = struct.Struct("!?")
+    _UNSIGNED_INT_STRUCT = struct.Struct("!I")
+    _UNSIGNED_LONG_STRUCT = struct.Struct("!Q")
+
+    _FLAG_STR_REPR_PRESENT = 1
+
+    def __init__(self, f: BinaryIO) -> None:
+        self._f = f
+        self._marks = {}
+
+    def write_header(self) -> None:
+        self._write_magic()
+
+        self.write_unsigned_int(self._VERSION)
+        local_tz = datetime.now(timezone.utc).astimezone().tzinfo
+        created_at = datetime.now(tz=local_tz).isoformat()
+        self.write_string(created_at)
+
+        flags = 0 | self._FLAG_STR_REPR_PRESENT
+        self.write_unsigned_long(flags)
+
+    def write_footer(self) -> None:
+        self._write_magic()
+
+    def _write_magic(self) -> None:
+        self.write_unsigned_long(self._MAGIC)
+
+    def write_string(self, value: str) -> None:
+        b = value.encode("utf-8")
+        self._f.write(struct.pack(f"!H{len(b)}s", len(b), b))
+
+    def write_bool(self, value: bool) -> None:
+        self._f.write(self._BOOL_STRUCT.pack(value))
+
+    def write_unsigned_int(self, value: int) -> None:
+        self._f.write(self._UNSIGNED_INT_STRUCT.pack(value))
+
+    def write_unsigned_long(self, value: int) -> None:
+        self._f.write(self._UNSIGNED_LONG_STRUCT.pack(value))
+
+    def mark_unsigned_int(self) -> UUID:
+        mark = uuid4()
+        self._marks[mark] = self._f.tell()
+        self.write_unsigned_int(0)
+        return mark
+
+    def close_unsigned_int_mark(self, mark: UUID, value: int) -> None:
+        offset = self._f.tell()
+        self._f.seek(self._marks[mark])
+        self.write_unsigned_int(value)
+        self._f.seek(offset)
+        del self._marks[mark]
+
+
 def _dump_heap() -> str:
     global_start = time.monotonic()
     visited = 0
 
     gc_tracked_objects = _get_gc_tracked_objects()
+    with open(heap_file, "wb") as f:
+        writer = _HeapWriter(f)
+        writer.write_header()
 
-    messages = []
-    threads, locals_ = _get_threads_and_locals(messages)
+        messages = []
+        all_locals = _write_threads_and_return_locals(writer, messages)
 
-    local_start = time.monotonic()
-    with closing(ProgressReporter(progress_file)) as progress_reporter:
-        object_jsons, types = _all_objects_jsons_and_types(
-            gc_tracked_objects, locals_, progress_reporter
-        )
-    all_objects_duration = time.monotonic() - local_start
+        with closing(ProgressReporter(progress_file)) as progress_reporter:
+            types = _write_objects_jsons_and_return_types(
+                writer, gc_tracked_objects, all_locals, progress_reporter
+            )
 
-    local_start = time.monotonic()
-    open_func = gzip.open if heap_file.endswith(".gz") else open
-    with open_func(heap_file, "wb") as f:
-        f.write("{\n".encode("utf-8"))
+        writer.write_unsigned_int(len(types))
+        for addr, type_name in types.items():
+            writer.write_unsigned_long(addr)
+            writer.write_string(type_name)
 
-        f.write('  "metadata": '.encode("utf-8"))
-        from datetime import datetime, timezone
-
-        local_tz = datetime.now(timezone.utc).astimezone().tzinfo
-        metadata = {"version": 1, "created_at": datetime.now(tz=local_tz).isoformat()}
-        f.write(json.dumps(metadata, indent=2).encode("utf-8"))
-        f.write(",\n".encode("utf-8"))
-
-        f.write('  "threads": '.encode("utf-8"))
-        f.write(json.dumps(threads, indent=2).encode("utf-8"))
-        f.write(",\n".encode("utf-8"))
-
-        f.write('  "objects": {\n'.encode("utf-8"))
-        first_iteration = True
-        for obj_str in object_jsons:
-            visited += 1
-
-            if not first_iteration:
-                f.write(",\n".encode("utf-8"))
-            else:
-                first_iteration = False
-
-            f.write(obj_str.encode("utf-8"))
-        f.write("\n  },\n".encode("utf-8"))
-
-        f.write('  "types": '.encode("utf-8"))
-        f.write(json.dumps(types, indent=2).encode("utf-8"))
-
-        f.write("\n}".encode("utf-8"))
-    writing_duration = time.monotonic() - local_start
+        writer.write_footer()
 
     result = (
         f"Heap dumped to {heap_file}. "
         + f"Visited {visited} objects. "
-        + f"Took {(time.monotonic() - global_start):.3f} seconds total, "
-        + f"{all_objects_duration:.3f} seconds collecting objects, "
-        + f"{writing_duration:.3f} seconds writing file."
+        + f"Took {(time.monotonic() - global_start):.3f} seconds"
     )
     if messages:
         result += "\n" + "\n".join(messages) + "\n"
@@ -117,67 +146,75 @@ def _get_gc_tracked_objects() -> List[Any]:
     invisible_objects.add(id(str_len))
     invisible_objects.add(id(result))
     invisible_objects.add(id(_dump_heap))
-    invisible_objects.add(id(_all_objects_jsons_and_types))
-    invisible_objects.add(id(_get_threads_and_locals))
+    invisible_objects.add(id(_write_objects_jsons_and_return_types))
+    invisible_objects.add(id(_write_threads_and_return_locals))
     invisible_objects.add(id(_shadowed_dict_orig))
     invisible_objects.add(id(_check_class_orig))
     invisible_objects.add(id(ProgressReporter))
+    invisible_objects.add(id(_HeapWriter))
 
     return [o for o in gc.get_objects() if id(o) not in invisible_objects]
 
 
-def _get_threads_and_locals(
+def _write_threads_and_return_locals(
+    writer: _HeapWriter,
     messages: List[str],
-) -> Tuple[List[Dict[str, List[dict]]], List[Any]]:
+) -> List[Any]:
     current_frames = sys._current_frames()
     all_locals: List[Any] = []
-    stack_traces: List[Dict[str, List[dict]]] = []
-    for thread in threading.enumerate():
-        thread_dict = {
-            "thread_name": thread.name,
-            "alive": thread.is_alive(),
-            "daemon": thread.daemon,
-            "stack_trace": None,
-        }
-        stack_traces.append(thread_dict)
+
+    all_threads = list(threading.enumerate())
+    writer.write_unsigned_int(len(all_threads))
+
+    for thread in all_threads:
+        writer.write_string(thread.name)
+        writer.write_bool(thread.is_alive())
+        writer.write_bool(thread.daemon)
 
         current_thread_frame = current_frames.get(thread.ident)
         if current_thread_frame is None:
             messages.append(f"WARNING - stack for thread {thread.name} not found")
+            # Stack trace length
+            writer.write_unsigned_int(0)
             continue
 
-        thread_dict["stack_trace"] = []
-        for frame, lineno in traceback.walk_stack(current_thread_frame):
-            # Skip the dumper frames, which may be on top of normal frames.
-            if frame.f_code.co_filename == __file__:
-                continue
+        # Skip the dumper frames, which may be on top of normal frames.
+        stack_trace: List[Tuple[FrameType, int]] = [
+            el
+            for el in traceback.walk_stack(current_thread_frame)
+            if el[0].f_code.co_filename != __file__
+        ]
+        # Stack trace length
+        writer.write_unsigned_int(len(stack_trace))
+        for frame, lineno in stack_trace:
+            # File name
+            writer.write_string(frame.f_code.co_filename)
+            # Line number
+            writer.write_unsigned_int(lineno)
+            # Function name
+            writer.write_string(frame.f_code.co_name)
+
+            # Locals:
+            writer.write_unsigned_int(len(frame.f_locals))
+            for loc_name, loc_value in frame.f_locals.items():
+                writer.write_string(loc_name)
+                writer.write_unsigned_long(id(loc_value))
 
             all_locals.extend(frame.f_locals.values())
-            thread_dict["stack_trace"].append(
-                {
-                    "file": frame.f_code.co_filename,
-                    "lineno": lineno,
-                    "name": frame.f_code.co_name,
-                    "locals": {
-                        loc_name: id(loc_value)
-                        for loc_name, loc_value in frame.f_locals.items()
-                    },
-                }
-            )
-    return stack_traces, all_locals
+    return all_locals
 
 
-def _all_objects_jsons_and_types(
+def _write_objects_jsons_and_return_types(
+    writer: _HeapWriter,
     gc_tracked_objects: List[Any],
     locals_: List[Any],
     progress_reporter: ProgressReporter,
-) -> Tuple[List[str], Dict[str, str]]:
+) -> Dict[int, str]:
     seen_ids = set()
     to_visit = []
     to_visit.extend(gc_tracked_objects)
     to_visit.extend(locals_)
-    result_objects = []
-    result_types = {}
+    result_types: Dict[int, str] = {}
 
     inspect._shadowed_dict = lru_cache(maxsize=None)(_shadowed_dict_orig)
     inspect._check_class = lru_cache(maxsize=None)(_check_class_orig)
@@ -187,6 +224,9 @@ def _all_objects_jsons_and_types(
 
     done = 0
     progress_reporter.report(done, len(to_visit))
+
+    # Object count -- will be written in the end.
+    object_count_mark = writer.mark_unsigned_int()
 
     while len(to_visit) > 0:
         obj = to_visit.pop()
@@ -198,64 +238,55 @@ def _all_objects_jsons_and_types(
         done += 1
 
         type_ = type(obj)
-        result_types[str(id(type_))] = type_.__name__
+        result_types[id(type_)] = type_.__name__
 
         # Self-references here are fine.
-        referents = gc.get_referents(obj)
+        referents = [r for r in gc.get_referents(obj) if id(r) not in invisible_objects]
         to_visit.extend(referents)
 
         try:
-            str_ = str(obj)
+            str_repr = str(obj)
             if str_len > -1:
-                str_ = str_[:str_len]
+                str_repr = str_repr[:str_len]
         except:
-            str_ = "<ERROR on __str__>"
+            str_repr = "<ERROR on __str__>"
 
-        # Format:
-        # {
-        #     "address": id(obj),
-        #     "type": id(type_),
-        #     "size": sys.getsizeof(obj),
-        #     "str": str_,
-        #     "attrs": {"aaa": id(aaa_value), ...},
-        #     "referents": [id(r) for r in referents],
-        # }
+        # Address
+        writer.write_unsigned_long(id(obj))
+        # Type
+        writer.write_unsigned_long(id(type_))
+        # Size
+        writer.write_unsigned_int(sys.getsizeof(obj))
 
-        s = io.StringIO()
-        s.write(f'    "{id(obj)}": ')
-        s.write("{")
-        s.write(f'"address": {id(obj)}, ')
-        s.write(f'"type": {id(type_)}, ')
-        s.write(f'"size": {sys.getsizeof(obj)}, ')
-        s.write(f'"str": {py_encode_basestring(str_)}, ')
-        s.write('"attrs": {')
-        first_iteration = True
+        # Referents
+        writer.write_unsigned_int(len(referents))
+        for r in referents:
+            writer.write_unsigned_long(id(r))
+
+        # Attributes
+        attrs: List[Tuple[str, object]] = []
         for attr in dir(obj):
             try:
                 attr_value = inspect.getattr_static(obj, attr)
-
-                if first_iteration:
-                    first_iteration = False
-                else:
-                    s.write(", ")
-                s.write(f'"{attr}": {id(attr_value)}')
-
                 to_visit.append(attr_value)
+                attrs.append((attr, attr_value))
             except (AttributeError, ValueError):
                 pass
-        s.write("},")
+        writer.write_unsigned_int(len(attrs))
+        for attr, attr_value in attrs:
+            writer.write_string(attr)
+            writer.write_unsigned_long(id(attr_value))
 
-        s.write('"referents": [')
-        s.write(", ".join(str(id(r)) for r in referents))
-        s.write("]")
+        # String representation
+        writer.write_string(str_repr)
 
-        s.write("}")
-
-        result_objects.append(s.getvalue())
         progress_reporter.report(done, len(to_visit))
 
+    # Object count -- real value.
+    writer.close_unsigned_int_mark(object_count_mark, done)
+
     progress_reporter.report(done, len(to_visit))
-    return result_objects, result_types
+    return result_types
 
 
 class ProgressReporter:

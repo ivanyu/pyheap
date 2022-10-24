@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from ui.pagination import Pagination
+from pyheap_ui.pagination import Pagination
 
 
 def test_minimal() -> None:

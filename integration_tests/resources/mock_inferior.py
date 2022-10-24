@@ -19,12 +19,13 @@ import tempfile
 import time
 from pathlib import Path
 from threading import Thread, Event
+from typing import Any
 
 heap_file = sys.argv[1]
 
 
 class MyThread(Thread):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.reached = Event()
 
@@ -50,7 +51,7 @@ some_tuple = ("a", "b", "c")
 
 def function3(a: int) -> None:
     dumper_path = str(
-        Path(__file__).parent.parent.parent.parent / "src" / "dumper_inferior.py"
+        Path(__file__).parent.parent.parent / "pyheap" / "src" / "dumper_inferior.py"
     )
     import runpy
 
