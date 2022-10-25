@@ -16,7 +16,7 @@
 
 .PHONY: docker
 docker: docker-prepare
-	docker build . -t ghcr.io/ivanyu/pyheap-ui
+	docker build . -t ivanyu/pyheap-ui
 
 docker-prepare: requirements.txt
 
