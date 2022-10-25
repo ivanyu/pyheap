@@ -58,7 +58,7 @@ docker run -it --rm \
   --userns=host --user=$(id -u):$(id -g) \
   -v ${PWD}:/pyheap-workdir \
   --name pyheap-ui -p 5000:5000 \
-  ghcr.io/ivanyu/pyheap-ui:main \
+  ivanyu/pyheap-ui:main \
   heap.pyheap
 ```
 and open [http://127.0.0.1:5000](http://127.0.0.1:5000).
