@@ -29,7 +29,7 @@ from typing import Optional, Dict, Any, Callable
 def dump_heap(args: argparse.Namespace) -> None:
     abs_file_path = os.path.abspath(args.file)
     print(f"Dumping heap from process {args.pid} into {abs_file_path}")
-    print(f"Max length of string representation is {args.string_length}")
+    print(f"Max length of string representation is {args.str_repr_len}")
 
     module_path = Path(__file__).parent
     dumper_inferior_path = module_path / "dumper_inferior.py"
@@ -58,7 +58,7 @@ def dump_heap(args: argparse.Namespace) -> None:
         "-ex",
         "set print elements 0",
         "-ex",
-        f'print $dump_python_heap("{dumper_inferior_path}", "{abs_file_path}", {args.string_length}, "{progress_file_path}")',
+        f'print $dump_python_heap("{dumper_inferior_path}", "{abs_file_path}", {args.str_repr_len}, "{progress_file_path}")',
         "-ex",
         "detach",
         "-ex",
@@ -143,10 +143,10 @@ if __name__ == "__main__":
     )
     parser.add_argument("--file", "-f", type=str, required=True, help="heap file name")
     parser.add_argument(
-        "--string-length",
+        "--str-repr-len",
         type=int,
         required=False,
-        help="length of string representations",
+        help="max length of string representation of objects (-1 disables it)",
         default=1000,
     )
     parser.set_defaults(func=dump_heap)

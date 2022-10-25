@@ -65,7 +65,9 @@
             <th scope="col" style="width: 1em;"></th>
             <th scope="col" style="width: 7em;">Object type</th>
             <th scope="col" style="width: 6em;">Retained heap size</th>
+            {% if with_str_repr %}
             <th scope="col">String representation</th>
+            {% endif %}
         </tr>
         </thead>
         <tbody class="table-group-divider">
@@ -79,7 +81,9 @@
             </td>
             <td><code>{{ types[obj.type] }}</code></td>
             <td>{{ retained_heap_size }}</td>
+            {% if with_str_repr %}
             <td>{{ obj.str_repr }}</td>
+            {% endif %}
         </tr>
         {% endfor %}
         </tbody>

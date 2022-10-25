@@ -34,7 +34,7 @@ JsonObject = Mapping[str, Any]
 
 @dataclass(frozen=True)
 class HeapFlags:
-    str_repr_present: bool
+    with_str_repr: bool
 
 
 @dataclass(frozen=True)
@@ -74,8 +74,8 @@ class HeapObject:
     referents: Set[Address]
 
     def __post_init__(self) -> None:
-        self._read_attributes_func: Optional[Callable[[], Dict[str, Address]]]
-        self._read_str_repr_func: Optional[Callable[[], str]]
+        self._read_attributes_func: Optional[Callable[[], Dict[str, Address]]] = None
+        self._read_str_repr_func: Optional[Callable[[], str]] = None
 
     def set_read_attributes_func(self, func: Callable[[], Dict[str, Address]]) -> None:
         self._read_attributes_func = func
@@ -88,8 +88,11 @@ class HeapObject:
         return self._read_attributes_func()
 
     @property
-    def str_repr(self) -> str:
-        return self._read_str_repr_func()
+    def str_repr(self) -> Optional[str]:
+        if self._read_str_repr_func:
+            return self._read_str_repr_func()
+        else:
+            return None
 
     def __getstate__(self) -> Dict[str, Any]:
         # Exclude pickling the lazy load functions.

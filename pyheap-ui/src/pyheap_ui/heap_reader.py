@@ -19,7 +19,7 @@ from functools import cache
 
 import typing_extensions
 from typing_extensions import Annotated
-from typing import Dict, TypeVar, Type, Callable, Union, Iterable, Any, Set
+from typing import Dict, TypeVar, Type, Callable, Union, Iterable, Any, Set, Optional
 import struct
 from pyheap_ui.heap_types import (
     Heap,
@@ -67,6 +67,8 @@ class HeapReader:
     def __init__(self, buf: Union[bytes, mmap.mmap]) -> None:
         self._buf = buf
         self._offset = 0
+
+        self._flags: Optional[HeapFlags]
 
     def read(self) -> Heap:
         # Header
@@ -147,27 +149,31 @@ class HeapReader:
             self._skip_string()
             self._skip_unsigned_long()
 
-        # Skip the string representation.
-        string_repr_offset = self._offset
-        self._skip_string()
-
         def read_attributes() -> Dict[str, Address]:
             self._offset = attributes_offset
             return self._read(Dict[str, Address])
 
-        def read_str_repr() -> str:
-            self._offset = string_repr_offset
-            return self._read_string()
-
         r.set_read_attributes_func(read_attributes)
-        r.set_read_str_repr_func(read_str_repr)
+
+        # Skip the string representation.
+        if self._flags.with_str_repr:
+            string_repr_offset = self._offset
+            self._skip_string()
+
+            def read_str_repr() -> str:
+                self._offset = string_repr_offset
+                return self._read_string()
+
+            r.set_read_str_repr_func(read_str_repr)
 
         return r
 
     def _read_heap_flags(self) -> HeapFlags:
-        flag_str_repr_present = 1
+        flag_with_str_repr = 1
         value = self._read_unsigned_long()
-        return HeapFlags(str_repr_present=bool(value & flag_str_repr_present))
+        r = HeapFlags(with_str_repr=bool(value & flag_with_str_repr))
+        self._flags = r
+        return r
 
     def _read_dataclass(self, type_: Type[T]) -> T:
         fields = {}

@@ -80,7 +80,7 @@ class _GlobalsDict:
 
     def close(self) -> None:
         # Doc: https://docs.python.org/3/c-api/refcounting.html#c.Py_DecRef
-        gdb.parse_and_eval(f"Py_DecRef({self.ptr})")
+        gdb.parse_and_eval(f"(void)Py_DecRef({self.ptr})")
 
 
 class _FP:
@@ -105,11 +105,11 @@ class DumpPythonHeap(gdb.Function):
         self,
         dumper_path: gdb.Value,
         heap_file: gdb.Value,
-        str_len: gdb.Value,
+        str_repr_len: gdb.Value,
         progress_file: gdb.Value,
     ) -> str:
         try:
-            return self._invoke0(dumper_path, heap_file, str_len, progress_file)
+            return self._invoke0(dumper_path, heap_file, str_repr_len, progress_file)
         except Exception as e:
             import traceback
 
@@ -120,20 +120,22 @@ class DumpPythonHeap(gdb.Function):
         self,
         dumper_path: gdb.Value,
         heap_file: gdb.Value,
-        str_len: gdb.Value,
+        str_repr_len: gdb.Value,
         progress_file: gdb.Value,
     ) -> str:
-        if str_len.type.name != "int":
-            raise ValueError("str_len must be int")
-        heap_file_str = heap_file.string()
-        str_len_int = int(str_len)
         dumper_path_str = dumper_path.string()
+        heap_file_str = heap_file.string()
+
+        if str_repr_len.type.name != "int":
+            raise ValueError("str_repr_len must be int")
+        str_repr_len_int = int(str_repr_len)
+
         progress_file_str = progress_file.string()
 
         globals_dict = _GlobalsDict(
             __file__=dumper_path_str,
             heap_file=heap_file_str,
-            str_len=str_len_int,
+            str_repr_len=str_repr_len_int,
             progress_file=progress_file_str,
         )
         with closing(globals_dict) as globals_dict, closing(_FP(dumper_path_str)) as fp:

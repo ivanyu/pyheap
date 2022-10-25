@@ -40,7 +40,7 @@ This module is executed in the context of the inferior.
 
 # Inputs:
 heap_file: str
-str_len: int
+str_repr_len: int
 progress_file: str
 
 # Output:
@@ -55,11 +55,15 @@ class _HeapWriter:
     _UNSIGNED_INT_STRUCT = struct.Struct("!I")
     _UNSIGNED_LONG_STRUCT = struct.Struct("!Q")
 
-    _FLAG_STR_REPR_PRESENT = 1
+    _FLAG_WITH_STR_REPR = 1
 
-    def __init__(self, f: BinaryIO) -> None:
+    def __init__(self, *, f: BinaryIO, with_str_repr: bool) -> None:
         self._f = f
         self._marks = {}
+
+        self._flags = 0
+        if with_str_repr:
+            self._flags = self._flags | self._FLAG_WITH_STR_REPR
 
     def write_header(self) -> None:
         self._write_magic()
@@ -69,8 +73,7 @@ class _HeapWriter:
         created_at = datetime.now(tz=local_tz).isoformat()
         self.write_string(created_at)
 
-        flags = 0 | self._FLAG_STR_REPR_PRESENT
-        self.write_unsigned_long(flags)
+        self.write_unsigned_long(self._flags)
 
     def write_footer(self) -> None:
         self._write_magic()
@@ -111,7 +114,7 @@ def _dump_heap() -> str:
 
     gc_tracked_objects = _get_gc_tracked_objects()
     with open(heap_file, "wb") as f:
-        writer = _HeapWriter(f)
+        writer = _HeapWriter(f=f, with_str_repr=str_repr_len >= 0)
         writer.write_header()
 
         messages = []
@@ -143,7 +146,7 @@ def _get_gc_tracked_objects() -> List[Any]:
     invisible_objects = set()
     invisible_objects.add(id(invisible_objects))
     invisible_objects.add(id(heap_file))
-    invisible_objects.add(id(str_len))
+    invisible_objects.add(id(str_repr_len))
     invisible_objects.add(id(result))
     invisible_objects.add(id(_dump_heap))
     invisible_objects.add(id(_write_objects_jsons_and_return_types))
@@ -244,13 +247,6 @@ def _write_objects_jsons_and_return_types(
         referents = [r for r in gc.get_referents(obj) if id(r) not in invisible_objects]
         to_visit.extend(referents)
 
-        try:
-            str_repr = str(obj)
-            if str_len > -1:
-                str_repr = str_repr[:str_len]
-        except:
-            str_repr = "<ERROR on __str__>"
-
         # Address
         writer.write_unsigned_long(id(obj))
         # Type
@@ -278,7 +274,12 @@ def _write_objects_jsons_and_return_types(
             writer.write_unsigned_long(id(attr_value))
 
         # String representation
-        writer.write_string(str_repr)
+        if str_repr_len >= 0:
+            try:
+                str_repr = str(obj)[:str_repr_len]
+            except:
+                str_repr = "<ERROR on __str__>"
+            writer.write_string(str_repr)
 
         progress_reporter.report(done, len(to_visit))
 

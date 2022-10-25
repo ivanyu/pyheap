@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from unittest.mock import ANY
 from pathlib import Path
 import dateutil.parser
+import pytest
 from pyheap_ui.heap_reader import HeapReader
 from pyheap_ui.heap_types import HeapThread, HeapObject, Heap
 
@@ -29,10 +30,11 @@ _ATTRS_FOR_FLOAT = set(dir(1.0))
 _ATTRS_FOR_STR = set(dir(""))
 
 
-def test_dumper(tmp_path: Path) -> None:
+@pytest.mark.parametrize("dump_str_repr", [True, False])
+def test_dumper(tmp_path: Path, dump_str_repr: bool) -> None:
     heap_file = str(tmp_path / "test_heap.pyheap")
     mock_inferior_file = str(Path(__file__).parent / "resources" / "mock_inferior.py")
-    r = subprocess.run(["python", mock_inferior_file, heap_file])
+    r = subprocess.run(["python", mock_inferior_file, heap_file, str(dump_str_repr)])
     assert r.returncode == 0  # not all errors may be propagated as return code
 
     try:
@@ -49,7 +51,7 @@ def test_dumper(tmp_path: Path) -> None:
     assert heap.header.version == 1
     x = dateutil.parser.isoparse(heap.header.created_at)
     assert (datetime.now(timezone.utc) - x).total_seconds() < 5 * 60
-    assert heap.header.flags.str_repr_present is True
+    assert heap.header.flags.with_str_repr is dump_str_repr
 
     under_debugger = sys.gettrace() is not None
     assert len(heap.threads) == (2 if not under_debugger else 5)
@@ -71,7 +73,7 @@ def test_dumper(tmp_path: Path) -> None:
 
     frame = main_thread.stack_trace[3]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 62
+    assert frame.lineno == 63
     assert frame.co_name == "function3"
     assert set(frame.locals.keys()) == {
         "a",
@@ -85,15 +87,17 @@ def test_dumper(tmp_path: Path) -> None:
         type=_find_type_by_name(heap, "int"), size=28, referents=set()
     )
     assert obj.attributes.keys() == _ATTRS_FOR_INT
-    assert obj.str_repr == "42"
+    assert obj.str_repr == ("42" if dump_str_repr else None)
 
     obj = heap.objects[frame.locals["dumper_path"]]
     assert obj == HeapObject(
         type=_find_type_by_name(heap, "str"), size=110, referents=set()
     )
     assert obj.attributes.keys() == _ATTRS_FOR_STR
-    assert obj.str_repr == str(
-        Path(__file__).parent.parent / "pyheap" / "src" / "dumper_inferior.py"
+    assert obj.str_repr == (
+        str(Path(__file__).parent.parent / "pyheap" / "src" / "dumper_inferior.py")
+        if dump_str_repr
+        else None
     )
 
     assert heap.objects[frame.locals["runpy"]].type == _find_type_by_name(
@@ -102,7 +106,7 @@ def test_dumper(tmp_path: Path) -> None:
 
     frame = main_thread.stack_trace[4]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 73
+    assert frame.lineno == 74
     assert frame.co_name == "function2"
     assert set(frame.locals.keys()) == {"a", "b"}
     obj = heap.objects[frame.locals["a"]]
@@ -110,18 +114,18 @@ def test_dumper(tmp_path: Path) -> None:
         type=_find_type_by_name(heap, "int"), size=28, referents=set()
     )
     assert obj.attributes.keys() == _ATTRS_FOR_INT
-    assert obj.str_repr == "42"
+    assert obj.str_repr == ("42" if dump_str_repr else None)
 
     obj = heap.objects[frame.locals["b"]]
     assert obj == HeapObject(
         type=_find_type_by_name(heap, "str"), size=53, referents=set()
     )
     assert obj.attributes.keys() == _ATTRS_FOR_STR
-    assert obj.str_repr == "leaf"
+    assert obj.str_repr == ("leaf" if dump_str_repr else None)
 
     frame = main_thread.stack_trace[5]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 77
+    assert frame.lineno == 78
     assert frame.co_name == "function1"
     assert set(frame.locals.keys()) == {"a", "b", "c"}
 
@@ -130,25 +134,25 @@ def test_dumper(tmp_path: Path) -> None:
         type=_find_type_by_name(heap, "int"), size=28, referents=set()
     )
     assert obj.attributes.keys() == _ATTRS_FOR_INT
-    assert obj.str_repr == "42"
+    assert obj.str_repr == ("42" if dump_str_repr else None)
 
     obj = heap.objects[frame.locals["b"]]
     assert obj == HeapObject(
         type=_find_type_by_name(heap, "str"), size=53, referents=set()
     )
     assert obj.attributes.keys() == _ATTRS_FOR_STR
-    assert obj.str_repr == "leaf"
+    assert obj.str_repr == ("leaf" if dump_str_repr else None)
 
     obj = heap.objects[frame.locals["c"]]
     assert obj == HeapObject(
         type=_find_type_by_name(heap, "float"), size=24, referents=set()
     )
     assert obj.attributes.keys() == _ATTRS_FOR_FLOAT
-    assert obj.str_repr == "12.5"
+    assert obj.str_repr == ("12.5" if dump_str_repr else None)
 
     frame = main_thread.stack_trace[6]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 80
+    assert frame.lineno == 81
     assert frame.co_name == "<module>"
     expected_locals = {
         "__name__",
@@ -163,6 +167,7 @@ def test_dumper(tmp_path: Path) -> None:
         "sys",
         "os",
         "tempfile",
+        "dump_str_repr",
         "time",
         "Path",
         "Any",
@@ -187,21 +192,27 @@ def test_dumper(tmp_path: Path) -> None:
         type=_find_type_by_name(heap, "str"), size=60, referents=set()
     )
     assert obj.attributes.keys() == _ATTRS_FOR_STR
-    assert obj.str_repr == "hello world"
+    assert obj.str_repr == ("hello world" if dump_str_repr else None)
 
     obj = heap.objects[frame.locals["some_list"]]
     # assert obj.address == frame.locals["some_list"]
     assert obj.type == _find_type_by_name(heap, "list")
     assert obj.size in {120, 88, 80}  # depends on Python version
-    assert obj.str_repr == "[1, 2, 3]"
-    assert {heap.objects[r].str_repr for r in obj.referents} == {"1", "2", "3"}
+    assert obj.str_repr == ("[1, 2, 3]" if dump_str_repr else None)
+    if dump_str_repr:
+        assert {heap.objects[r].str_repr for r in obj.referents} == {"1", "2", "3"}
+    else:
+        assert {heap.objects[r].str_repr for r in obj.referents} == {None}
 
     obj = heap.objects[frame.locals["some_tuple"]]
     # assert obj.address == frame.locals["some_tuple"]
     assert obj.type == _find_type_by_name(heap, "tuple")
     assert obj.size == 64
-    assert obj.str_repr == "('a', 'b', 'c')"
-    assert {heap.objects[r].str_repr for r in obj.referents} == {"a", "b", "c"}
+    assert obj.str_repr == ("('a', 'b', 'c')" if dump_str_repr else None)
+    if dump_str_repr:
+        assert {heap.objects[r].str_repr for r in obj.referents} == {"a", "b", "c"}
+    else:
+        assert {heap.objects[r].str_repr for r in obj.referents} == {None}
 
     second_thread = next(t for t in heap.threads if t.name == "MyThread")
     assert second_thread == HeapThread(
@@ -212,7 +223,7 @@ def test_dumper(tmp_path: Path) -> None:
 
     frame = second_thread.stack_trace[0]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 34
+    assert frame.lineno == 35
     assert frame.co_name == "_thread_inner"
     assert set(frame.locals.keys()) == {
         "self",
@@ -224,18 +235,21 @@ def test_dumper(tmp_path: Path) -> None:
         type=_find_type_by_name(heap, "str"), size=62, referents=set()
     )
     assert obj.attributes.keys() == _ATTRS_FOR_STR
-    assert obj.str_repr == "local_1 value"
+    assert obj.str_repr == ("local_1 value" if dump_str_repr else None)
 
     obj = heap.objects[frame.locals["local_2"]]
     # assert obj.address == frame.locals["local_2"]
     assert obj.type == _find_type_by_name(heap, "list")
     assert obj.size == 64
-    assert obj.str_repr == "['local_2 value']"
-    assert {heap.objects[r].str_repr for r in obj.referents} == {"local_2 value"}
+    assert obj.str_repr == ("['local_2 value']" if dump_str_repr else None)
+    if dump_str_repr:
+        assert {heap.objects[r].str_repr for r in obj.referents} == {"local_2 value"}
+    else:
+        assert {heap.objects[r].str_repr for r in obj.referents} == {None}
 
     frame = second_thread.stack_trace[1]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 37
+    assert frame.lineno == 38
     assert frame.co_name == "run"
     assert set(frame.locals.keys()) == {"self", "__class__"}
 
