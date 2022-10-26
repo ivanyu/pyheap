@@ -110,7 +110,6 @@ class _HeapWriter:
 
 def _dump_heap() -> str:
     global_start = time.monotonic()
-    visited = 0
 
     gc_tracked_objects = _get_gc_tracked_objects()
     with open(heap_file, "wb") as f:
@@ -121,7 +120,7 @@ def _dump_heap() -> str:
         all_locals = _write_threads_and_return_locals(writer, messages)
 
         with closing(ProgressReporter(progress_file)) as progress_reporter:
-            types = _write_objects_jsons_and_return_types(
+            types, visited = _write_objects_jsons_and_return_types(
                 writer, gc_tracked_objects, all_locals, progress_reporter
             )
 
@@ -212,7 +211,7 @@ def _write_objects_jsons_and_return_types(
     gc_tracked_objects: List[Any],
     locals_: List[Any],
     progress_reporter: ProgressReporter,
-) -> Dict[int, str]:
+) -> Tuple[Dict[int, str], int]:
     seen_ids = set()
     to_visit = []
     to_visit.extend(gc_tracked_objects)
@@ -287,7 +286,7 @@ def _write_objects_jsons_and_return_types(
     writer.close_unsigned_int_mark(object_count_mark, done)
 
     progress_reporter.report(done, len(to_visit))
-    return result_types
+    return result_types, done
 
 
 class ProgressReporter:
