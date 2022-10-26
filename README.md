@@ -63,6 +63,8 @@ docker run -it --rm \
 ```
 and open [http://127.0.0.1:5000](http://127.0.0.1:5000).
 
+The images are published on [Docker Hub](https://hub.docker.com/repository/docker/ivanyu/pyheap-ui).
+
 #### Running as a Python program
 
 You need a Python installation with Flask to run it. There's a Poetry environment for your convenience in [pyheap-ui/](pyheap-ui/).
