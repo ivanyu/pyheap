@@ -92,6 +92,7 @@ def heap() -> str:
         types=heap.types,
         total_heap_size=total_heap_size,
         object_count=object_count,
+        with_str_repr=heap.header.flags.with_str_repr,
     )
 
 
@@ -126,7 +127,7 @@ def objects_batch() -> JsonObject:
         obj_json["type"] = heap.types[obj.type]
         obj_json["inbound_references"] = list(inbound_references[address])
         obj_json["address"] = address
-        obj_json["str"] = obj.str_repr
+        obj_json["str_repr"] = obj.str_repr
         result.append(obj_json)
     return {"objects": result}
 

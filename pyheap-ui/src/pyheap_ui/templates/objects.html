@@ -29,7 +29,10 @@
 {%- endmacro %}
 
 {% macro render_attribute(attr, address, str_) -%}
-<code>{{ attr }}</code> {{ render_object_link(address) }} <span class="inline-object-str text-muted">{{ objects[address].str_repr }}</span>
+<code>{{ attr }}</code> {{ render_object_link(address) }}
+{% if objects[address].str_repr is not none %}
+<span class="inline-object-str text-muted">{{ objects[address].str_repr }}</span>
+{% endif %}
 {%- endmacro %}
 
 <div id="object-panel">

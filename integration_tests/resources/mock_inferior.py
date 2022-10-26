@@ -22,6 +22,7 @@ from threading import Thread, Event
 from typing import Any
 
 heap_file = sys.argv[1]
+dump_str_repr = sys.argv[2].lower() == "true"
 
 
 class MyThread(Thread):
@@ -63,7 +64,7 @@ def function3(a: int) -> None:
         path_name=dumper_path,
         init_globals={
             "heap_file": heap_file,
-            "str_len": 1000,
+            "str_repr_len": 1000 if dump_str_repr else -1,
             "progress_file": progress_file_path,
         },
     )
