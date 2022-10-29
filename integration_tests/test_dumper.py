@@ -34,8 +34,19 @@ _ATTRS_FOR_STR = set(dir(""))
 def test_dumper(tmp_path: Path, dump_str_repr: bool) -> None:
     heap_file = str(tmp_path / "test_heap.pyheap")
     mock_inferior_file = str(Path(__file__).parent / "resources" / "mock_inferior.py")
-    r = subprocess.run(["python", mock_inferior_file, heap_file, str(dump_str_repr)])
-    assert r.returncode == 0  # not all errors may be propagated as return code
+    r = subprocess.run(
+        ["python", mock_inferior_file, heap_file, str(dump_str_repr)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    print(r.stdout)
+    print(r.stderr)
+
+    # Not all errors may be propagated as return code
+    assert r.returncode == 0
+    assert not r.stdout
+    assert not r.stderr
 
     try:
         with open(heap_file, "rb") as f:
