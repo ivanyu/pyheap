@@ -46,12 +46,18 @@ progress_file: str
 # Output:
 result = None
 
+# Max negative range of short int. "-1" because the indexing starts with 1.
+_MAX_FREQUENT_ATTR_COUNT = (0b111111111111111 + 1) - 1
+# Max positive range of short int.
+_MAX_FREQUENT_ATTR_LENGTH = 0b111111111111111
+
 
 class _HeapWriter:
     _MAGIC = 123_000_321
     _VERSION = 1
 
     _BOOL_STRUCT = struct.Struct("!?")
+    _SIGNED_SHORT_STRUCT = struct.Struct("!h")
     _UNSIGNED_INT_STRUCT = struct.Struct("!I")
     _UNSIGNED_LONG_STRUCT = struct.Struct("!Q")
 
@@ -71,7 +77,7 @@ class _HeapWriter:
         self.write_unsigned_int(self._VERSION)
         local_tz = datetime.now(timezone.utc).astimezone().tzinfo
         created_at = datetime.now(tz=local_tz).isoformat()
-        self.write_string(created_at)
+        self.write_long_string(created_at)
 
         self.write_unsigned_long(self._flags)
 
@@ -81,9 +87,16 @@ class _HeapWriter:
     def _write_magic(self) -> None:
         self.write_unsigned_long(self._MAGIC)
 
-    def write_string(self, value: str) -> None:
+    def write_long_string(self, value: str) -> None:
         b = value.encode("utf-8")
         self._f.write(struct.pack(f"!H{len(b)}s", len(b), b))
+
+    def write_short_string(self, value: str) -> None:
+        b = value.encode("utf-8")
+        self._f.write(struct.pack(f"!h{len(b)}s", len(b), b))
+
+    def write_signed_short(self, value: int) -> None:
+        self._f.write(self._SIGNED_SHORT_STRUCT.pack(value))
 
     def write_bool(self, value: bool) -> None:
         self._f.write(self._BOOL_STRUCT.pack(value))
@@ -119,15 +132,21 @@ def _dump_heap() -> str:
         messages = []
         all_locals = _write_threads_and_return_locals(writer, messages)
 
+        frequent_attributes = _write_frequent_attributes(writer)
+
         with closing(ProgressReporter(progress_file)) as progress_reporter:
-            types, visited = _write_objects_jsons_and_return_types(
-                writer, gc_tracked_objects, all_locals, progress_reporter
+            types, visited = _write_objects_and_return_types(
+                writer=writer,
+                gc_tracked_objects=gc_tracked_objects,
+                locals_=all_locals,
+                frequent_attributes=frequent_attributes,
+                progress_reporter=progress_reporter,
             )
 
         writer.write_unsigned_int(len(types))
         for addr, type_name in types.items():
             writer.write_unsigned_long(addr)
-            writer.write_string(type_name)
+            writer.write_long_string(type_name)
 
         writer.write_footer()
 
@@ -148,7 +167,8 @@ def _get_gc_tracked_objects() -> List[Any]:
     invisible_objects.add(id(str_repr_len))
     invisible_objects.add(id(result))
     invisible_objects.add(id(_dump_heap))
-    invisible_objects.add(id(_write_objects_jsons_and_return_types))
+    invisible_objects.add(id(_write_objects_and_return_types))
+    invisible_objects.add(id(_write_frequent_attributes))
     invisible_objects.add(id(_write_threads_and_return_locals))
     invisible_objects.add(id(_shadowed_dict_orig))
     invisible_objects.add(id(_check_class_orig))
@@ -169,7 +189,7 @@ def _write_threads_and_return_locals(
     writer.write_unsigned_int(len(all_threads))
 
     for thread in all_threads:
-        writer.write_string(thread.name)
+        writer.write_long_string(thread.name)
         writer.write_bool(thread.is_alive())
         writer.write_bool(thread.daemon)
 
@@ -190,26 +210,152 @@ def _write_threads_and_return_locals(
         writer.write_unsigned_int(len(stack_trace))
         for frame, lineno in stack_trace:
             # File name
-            writer.write_string(frame.f_code.co_filename)
+            writer.write_long_string(frame.f_code.co_filename)
             # Line number
             writer.write_unsigned_int(lineno)
             # Function name
-            writer.write_string(frame.f_code.co_name)
+            writer.write_long_string(frame.f_code.co_name)
 
             # Locals:
             writer.write_unsigned_int(len(frame.f_locals))
             for loc_name, loc_value in frame.f_locals.items():
-                writer.write_string(loc_name)
+                writer.write_long_string(loc_name)
                 writer.write_unsigned_long(id(loc_value))
 
             all_locals.extend(frame.f_locals.values())
     return all_locals
 
 
-def _write_objects_jsons_and_return_types(
+def _write_frequent_attributes(writer: _HeapWriter) -> Dict[str, int]:
+    """Add the attributes of most common types."""
+    frequent_attrs = set()
+
+    frequent_attrs.update(dir(object))
+    frequent_attrs.update(dir(type))
+    frequent_attrs.update(dir(super))
+
+    frequent_attrs.update(dir(int))
+    frequent_attrs.update(dir(float))
+    frequent_attrs.update(dir(complex))
+    frequent_attrs.update(dir(bool))
+
+    frequent_attrs.update(dir(str))
+    frequent_attrs.update(dir(bytes))
+    frequent_attrs.update(dir(bytearray))
+    frequent_attrs.update(dir(memoryview))
+
+    frequent_attrs.update(dir(list))
+    frequent_attrs.update(dir(tuple))
+    frequent_attrs.update(dir(range))
+    frequent_attrs.update(dir(slice))
+    frequent_attrs.update(dir(filter))
+    frequent_attrs.update(dir(reversed))
+
+    frequent_attrs.update(dir(set))
+    frequent_attrs.update(dir(frozenset))
+    frequent_attrs.update(dir(dict))
+
+    import contextlib
+
+    frequent_attrs.update(dir(contextlib.AbstractContextManager))
+    frequent_attrs.update(dir(contextlib.AbstractAsyncContextManager))
+    frequent_attrs.update(dir(contextlib.ContextDecorator))
+    frequent_attrs.update(dir(contextlib.closing))
+    frequent_attrs.update(dir(contextlib.redirect_stdout))
+    frequent_attrs.update(dir(contextlib.redirect_stderr))
+    frequent_attrs.update(dir(contextlib.suppress))
+    frequent_attrs.update(dir(contextlib.ExitStack))
+    frequent_attrs.update(dir(contextlib.AsyncExitStack))
+    frequent_attrs.update(dir(contextlib.nullcontext))
+
+    frequent_attrs.update(dir(_write_frequent_attributes))  # function
+    frequent_attrs.update(dir(_write_frequent_attributes.__code__))  # code
+    frequent_attrs.update(dir(list.__init__))  # wrapper_descriptor
+    frequent_attrs.update(dir(len))  # builtin_function_or_method
+    frequent_attrs.update(dir(set.union))  # method_descriptor
+
+    frequent_attrs.update(dir(property))
+    frequent_attrs.update(dir(classmethod))
+    frequent_attrs.update(dir(staticmethod))
+
+    frequent_attrs.update(dir(Exception))
+    frequent_attrs.update(dir(AssertionError))
+    frequent_attrs.update(dir(AttributeError))
+    frequent_attrs.update(dir(OSError))
+    frequent_attrs.update(dir(DeprecationWarning))
+    frequent_attrs.update(dir(GeneratorExit))
+    frequent_attrs.update(dir(ImportError))
+    frequent_attrs.update(dir(SyntaxError))
+
+    import functools
+
+    frequent_attrs.update(dir(functools.cache))
+    frequent_attrs.update(dir(functools.cached_property))
+
+    import enum
+
+    frequent_attrs.update(dir(enum.Enum))
+
+    import typing
+
+    frequent_attrs.update(dir(typing.List))
+    frequent_attrs.update(dir(typing.Set))
+    frequent_attrs.update(dir(typing.Tuple))
+    frequent_attrs.update(dir(typing.Optional))
+    frequent_attrs.update(dir(typing.TypeVar))
+    frequent_attrs.update(dir(typing.Iterable))
+    frequent_attrs.update(dir(typing.Protocol))
+    frequent_attrs.update(dir(typing.Generator))
+    frequent_attrs.update(dir(typing.Sequence))
+    frequent_attrs.update(dir(typing.Container))
+    frequent_attrs.update(dir(typing.MutableSequence))
+    frequent_attrs.update(dir(typing.AbstractSet))
+    frequent_attrs.update(dir(typing.MappingView))
+    frequent_attrs.update(dir(typing.ItemsView))
+    frequent_attrs.update(dir(typing.KeysView))
+    frequent_attrs.update(dir(typing.ValuesView))
+    frequent_attrs.update(dir(typing.ContextManager))
+    frequent_attrs.update(dir(typing.Mapping))
+    frequent_attrs.update(dir(typing.MutableMapping))
+    frequent_attrs.update(dir(typing.IO))
+    frequent_attrs.update(dir(typing.TextIO))
+    frequent_attrs.update(dir(typing.Match))
+    frequent_attrs.update(dir(typing.Pattern))
+    frequent_attrs.update(dir(typing.NamedTuple))
+    frequent_attrs.update(dir(typing.NewType))
+
+    import dataclasses
+
+    frequent_attrs.update(dir(dataclasses.dataclass))
+    frequent_attrs.update(dir(dataclasses.Field))
+    frequent_attrs.update(dir(dataclasses.FrozenInstanceError))
+
+    from builtins import __loader__
+
+    frequent_attrs.update(dir(__loader__))
+
+    frequent_attrs_list = [
+        a for a in frequent_attrs if len(a) <= _MAX_FREQUENT_ATTR_LENGTH
+    ]
+    frequent_attrs_list.sort(key=lambda x: len(x), reverse=True)
+    frequent_attrs_list = frequent_attrs_list[:_MAX_FREQUENT_ATTR_COUNT]
+
+    result: Dict[str, int] = {}
+
+    writer.write_unsigned_int(len(frequent_attrs_list))
+    for i, attr in enumerate(frequent_attrs_list):
+        writer.write_short_string(attr)
+        result[attr] = i
+
+    return result
+
+
+def _write_objects_and_return_types(
+    *,
     writer: _HeapWriter,
     gc_tracked_objects: List[Any],
     locals_: List[Any],
+    frequent_attributes: Dict[str, int],
     progress_reporter: ProgressReporter,
 ) -> Tuple[Dict[int, str], int]:
     seen_ids = set()
@@ -267,9 +413,15 @@ def _write_objects_jsons_and_return_types(
                 attrs.append((attr, attr_value))
             except (AttributeError, ValueError):
                 pass
+
         writer.write_unsigned_int(len(attrs))
         for attr, attr_value in attrs:
-            writer.write_string(attr)
+            freq_attr_idx = frequent_attributes.get(attr)
+            if freq_attr_idx is not None:
+                writer.write_signed_short(-1 * freq_attr_idx - 1)
+            else:
+                writer.write_short_string(attr)
+
             writer.write_unsigned_long(id(attr_value))
 
         # String representation
@@ -278,7 +430,7 @@ def _write_objects_jsons_and_return_types(
                 str_repr = str(obj)[:str_repr_len]
             except:
                 str_repr = "<ERROR on __str__>"
-            writer.write_string(str_repr)
+            writer.write_long_string(str_repr)
 
         progress_reporter.report(done, len(to_visit))
 

@@ -104,7 +104,7 @@ class HeapObject:
         return state
 
 
-ObjectDict = Dict[Address, HeapObject]
+ObjectDict = NewType("ObjectDict", Dict[Address, HeapObject])
 
 
 @dataclass(frozen=True)

@@ -19,7 +19,18 @@ from functools import cache
 
 import typing_extensions
 from typing_extensions import Annotated
-from typing import Dict, TypeVar, Type, Callable, Union, Iterable, Any, Set, Optional
+from typing import (
+    Dict,
+    TypeVar,
+    Type,
+    Callable,
+    Union,
+    Iterable,
+    Any,
+    Set,
+    Optional,
+    List,
+)
 import struct
 from pyheap_ui.heap_types import (
     Heap,
@@ -28,6 +39,7 @@ from pyheap_ui.heap_types import (
     Address,
     UnsignedInt,
     HeapFlags,
+    ObjectDict,
 )
 
 T = TypeVar("T")
@@ -57,6 +69,8 @@ class HeapReader:
 
     _UNSIGNED_BOOL_STRUCT = struct.Struct("!?")
     _UNSIGNED_BOOL_STRUCT_SIZE = _UNSIGNED_BOOL_STRUCT.size
+    _SIGNED_SHORT_STRUCT = struct.Struct("!h")
+    _SIGNED_SHORT_STRUCT_SIZE = _SIGNED_SHORT_STRUCT.size
     _UNSIGNED_SHORT_STRUCT = struct.Struct("!H")
     _UNSIGNED_SHORT_STRUCT_SIZE = _UNSIGNED_SHORT_STRUCT.size
     _UNSIGNED_INT_STRUCT = struct.Struct("!I")
@@ -68,7 +82,8 @@ class HeapReader:
         self._buf = buf
         self._offset = 0
 
-        self._flags: Optional[HeapFlags]
+        self._flags: Optional[HeapFlags] = None
+        self._frequent_attrs: Optional[List[str]] = None
 
     def read(self) -> Heap:
         # Header
@@ -90,6 +105,8 @@ class HeapReader:
             return self._read_heap_object()
         elif type_ == HeapFlags:
             return self._read_heap_flags()
+        elif type_ == ObjectDict:
+            return self._read_object_dict()
         elif self._is_dataclass(type_):
             return self._read_dataclass(type_)
         elif self._get_origin(type_) is list:
@@ -99,7 +116,7 @@ class HeapReader:
         elif self._get_origin(type_) is dict:
             return self._read_generic_dict(type_)
         elif type_ == str:
-            return self._read_string()
+            return self._read_long_string()
         elif type_ == bool:
             return self._read_bool()
         elif self._get_origin(type_) is Annotated:
@@ -146,23 +163,35 @@ class HeapReader:
         attributes_offset = self._offset
         attr_count = self._read_unsigned_int()
         for _ in range(attr_count):
-            self._skip_string()
+            self._skip_attribute_name_or_index()
             self._skip_unsigned_long()
 
         def read_attributes() -> Dict[str, Address]:
             self._offset = attributes_offset
-            return self._read(Dict[str, Address])
+
+            dict_size = self._read_unsigned_int()
+            result = {}
+            for _ in range(dict_size):
+                length_or_index = self._read_signed_short()
+                if length_or_index >= 0:
+                    k = self._read_string_with_known_length(length_or_index)
+                else:
+                    true_index = -1 * (length_or_index + 1)
+                    k = self._frequent_attrs[true_index]
+                v = self._read(Address)
+                result[k] = v
+            return result
 
         r.set_read_attributes_func(read_attributes)
 
         # Skip the string representation.
         if self._flags.with_str_repr:
             string_repr_offset = self._offset
-            self._skip_string()
+            self._skip_long_string()
 
             def read_str_repr() -> str:
                 self._offset = string_repr_offset
-                return self._read_string()
+                return self._read_long_string()
 
             r.set_read_str_repr_func(read_str_repr)
 
@@ -173,6 +202,11 @@ class HeapReader:
         value = self._read_unsigned_long()
         r = HeapFlags(with_str_repr=bool(value & flag_with_str_repr))
         self._flags = r
+        return r
+
+    def _read_object_dict(self) -> ObjectDict:
+        self._frequent_attrs = self._read_generic_list(List[str])
+        r = ObjectDict(self._read_generic_dict(ObjectDict.__supertype__))
         return r
 
     def _read_dataclass(self, type_: Type[T]) -> T:
@@ -195,9 +229,9 @@ class HeapReader:
         args = self._get_args(type_)
         if len(args) != 1:
             raise ValueError(f"Unsupported type {type_}")
-        list_size = self._read_unsigned_int()
+        set_size = self._read_unsigned_int()
         result = set()
-        for _ in range(list_size):
+        for _ in range(set_size):
             result.add(self._read(args[0]))
         return result
 
@@ -213,17 +247,24 @@ class HeapReader:
             result[k] = v
         return result
 
-    def _skip_string(self) -> None:
+    def _skip_attribute_name_or_index(self) -> None:
+        length_or_index = self._read_signed_short()
+        if length_or_index >= 0:
+            self._offset += length_or_index
+
+    def _skip_long_string(self) -> None:
         length = self._UNSIGNED_SHORT_STRUCT.unpack_from(self._buf, self._offset)[0]
         self._offset += self._UNSIGNED_SHORT_STRUCT_SIZE + length
 
     def _skip_unsigned_long(self) -> None:
         self._offset += self._UNSIGNED_LONG_STRUCT_SIZE
 
-    def _read_string(self) -> str:
+    def _read_long_string(self) -> str:
         length = self._UNSIGNED_SHORT_STRUCT.unpack_from(self._buf, self._offset)[0]
         self._offset += self._UNSIGNED_SHORT_STRUCT_SIZE
+        return self._read_string_with_known_length(length)
 
+    def _read_string_with_known_length(self, length: int) -> str:
         # Cache short string structures for performance.
         if length <= 1024:
             s = self._get_string_struct(length)
@@ -239,6 +280,11 @@ class HeapReader:
     @cache
     def _get_string_struct(self, length: int) -> struct.Struct:
         return struct.Struct(f"!{length}s")
+
+    def _read_signed_short(self) -> int:
+        value = self._SIGNED_SHORT_STRUCT.unpack_from(self._buf, self._offset)[0]
+        self._offset += self._SIGNED_SHORT_STRUCT_SIZE
+        return value
 
     def _read_unsigned_int(self) -> int:
         value = self._UNSIGNED_INT_STRUCT.unpack_from(self._buf, self._offset)[0]

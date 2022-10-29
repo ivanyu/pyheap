@@ -18,6 +18,7 @@ import os
 import subprocess
 import sys
 from datetime import datetime, timezone
+from threading import Thread
 from unittest.mock import ANY
 from pathlib import Path
 import dateutil.parser
@@ -224,6 +225,22 @@ def test_dumper(tmp_path: Path, dump_str_repr: bool) -> None:
         assert {heap.objects[r].str_repr for r in obj.referents} == {"a", "b", "c"}
     else:
         assert {heap.objects[r].str_repr for r in obj.referents} == {None}
+
+    # Check some attributes of an object.
+    obj = heap.objects[frame.locals["my_thread"]]
+    # Should have the same attributes that a normal Thread + some specific.
+    expected_attrs = set(dir(Thread()))
+    expected_attrs.update({"_thread_inner", "reached"})
+    if under_debugger:
+        expected_attrs.update(
+            {"__pydevd_id__", "_top_level_thread_tracer", "_tracer", "additional_info"}
+        )
+    assert set(obj.attributes) == expected_attrs
+    if dump_str_repr:
+        assert heap.objects[obj.attributes["setDaemon"]].str_repr.startswith(
+            "<function Thread.setDaemon"
+        )
+        assert heap.objects[obj.attributes["_name"]].str_repr == "MyThread"
 
     second_thread = next(t for t in heap.threads if t.name == "MyThread")
     assert second_thread == HeapThread(
