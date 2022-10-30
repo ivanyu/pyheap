@@ -18,6 +18,7 @@ import os
 import subprocess
 import sys
 from datetime import datetime, timezone
+from threading import Thread
 from unittest.mock import ANY
 from pathlib import Path
 import dateutil.parser
@@ -34,8 +35,19 @@ _ATTRS_FOR_STR = set(dir(""))
 def test_dumper(tmp_path: Path, dump_str_repr: bool) -> None:
     heap_file = str(tmp_path / "test_heap.pyheap")
     mock_inferior_file = str(Path(__file__).parent / "resources" / "mock_inferior.py")
-    r = subprocess.run(["python", mock_inferior_file, heap_file, str(dump_str_repr)])
-    assert r.returncode == 0  # not all errors may be propagated as return code
+    r = subprocess.run(
+        ["python", mock_inferior_file, heap_file, str(dump_str_repr)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    print(r.stdout)
+    print(r.stderr)
+
+    # Not all errors may be propagated as return code
+    assert r.returncode == 0
+    assert not r.stdout
+    assert not r.stderr
 
     try:
         with open(heap_file, "rb") as f:
@@ -213,6 +225,22 @@ def test_dumper(tmp_path: Path, dump_str_repr: bool) -> None:
         assert {heap.objects[r].str_repr for r in obj.referents} == {"a", "b", "c"}
     else:
         assert {heap.objects[r].str_repr for r in obj.referents} == {None}
+
+    # Check some attributes of an object.
+    obj = heap.objects[frame.locals["my_thread"]]
+    # Should have the same attributes that a normal Thread + some specific.
+    expected_attrs = set(dir(Thread()))
+    expected_attrs.update({"_thread_inner", "reached"})
+    if under_debugger:
+        expected_attrs.update(
+            {"__pydevd_id__", "_top_level_thread_tracer", "_tracer", "additional_info"}
+        )
+    assert set(obj.attributes) == expected_attrs
+    if dump_str_repr:
+        assert heap.objects[obj.attributes["setDaemon"]].str_repr.startswith(
+            "<function Thread.setDaemon"
+        )
+        assert heap.objects[obj.attributes["_name"]].str_repr == "MyThread"
 
     second_thread = next(t for t in heap.threads if t.name == "MyThread")
     assert second_thread == HeapThread(
