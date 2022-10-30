@@ -66,21 +66,33 @@ def test_dumper(tmp_path: Path, dump_str_repr: bool) -> None:
     assert heap.header.flags.with_str_repr is dump_str_repr
 
     under_debugger = sys.gettrace() is not None
-    assert len(heap.threads) == (2 if not under_debugger else 5)
+    python_3_11 = (sys.version_info.major, sys.version_info.minor) == (3, 11)
+    assert len(heap.threads) == (2 if not under_debugger or python_3_11 else 5)
 
     main_thread = next(t for t in heap.threads if t.name == "MainThread")
     assert main_thread == HeapThread(
         name="MainThread", is_alive=True, is_daemon=False, stack_trace=ANY
     )
 
-    assert len(main_thread.stack_trace) == (7 if not under_debugger else 12)
+    assert len(main_thread.stack_trace) == (
+        7 if not under_debugger or python_3_11 else 12
+    )
 
     frame = main_thread.stack_trace[0]
-    assert frame.co_filename.endswith("/runpy.py")
+    if python_3_11:
+        assert frame.co_filename == "<frozen runpy>"
+    else:
+        assert frame.co_filename.endswith("/runpy.py")
     frame = main_thread.stack_trace[1]
-    assert frame.co_filename.endswith("/runpy.py")
+    if python_3_11:
+        assert frame.co_filename == "<frozen runpy>"
+    else:
+        assert frame.co_filename.endswith("/runpy.py")
     frame = main_thread.stack_trace[2]
-    assert frame.co_filename.endswith("/runpy.py")
+    if python_3_11:
+        assert frame.co_filename == "<frozen runpy>"
+    else:
+        assert frame.co_filename.endswith("/runpy.py")
     assert frame.co_name == "run_path"
 
     frame = main_thread.stack_trace[3]
