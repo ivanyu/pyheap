@@ -79,7 +79,7 @@ and open [http://127.0.0.1:5000](http://127.0.0.1:5000).
 
 Analyze the heap with the `analyzer` module:
 ```bash
-$ python3 -m pyheap.analyzer retained-heap --file heap.json.gz
+$ PYTHONPATH=src -m analyzer retained-heap --file heap.pyheap
 
 [2022-09-07 09:40:46,594] INFO Loading file heap.json.gz
 [2022-09-07 09:40:46,633] INFO Loading file finished in 0.04 seconds
