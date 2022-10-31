@@ -74,23 +74,29 @@ class HeapObject:
     referents: Set[Address]
 
     def __post_init__(self) -> None:
-        self._read_attributes_func: Optional[Callable[[], Dict[str, Address]]] = None
-        self._read_str_repr_func: Optional[Callable[[], str]] = None
+        self._attributes_offset: Optional[int] = None
+        self._read_attributes_func: Optional[Callable[[int], Dict[str, Address]]] = None
+        self._str_repr_offset: Optional[int] = None
+        self._read_str_repr_func: Optional[Callable[[int], str]] = None
 
-    def set_read_attributes_func(self, func: Callable[[], Dict[str, Address]]) -> None:
+    def set_read_attributes_func(
+        self, offset: int, func: Callable[[int], Dict[str, Address]]
+    ) -> None:
+        self._attributes_offset = offset
         self._read_attributes_func = func
 
-    def set_read_str_repr_func(self, func: Callable[[], str]) -> None:
+    def set_read_str_repr_func(self, offset: int, func: Callable[[int], str]) -> None:
+        self._str_repr_offset = offset
         self._read_str_repr_func = func
 
     @property
     def attributes(self) -> Dict[str, Address]:
-        return self._read_attributes_func()
+        return self._read_attributes_func(self._attributes_offset)
 
     @property
     def str_repr(self) -> Optional[str]:
         if self._read_str_repr_func:
-            return self._read_str_repr_func()
+            return self._read_str_repr_func(self._str_repr_offset)
         else:
             return None
 
