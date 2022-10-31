@@ -160,42 +160,38 @@ class HeapReader:
         )
 
         # Skip the attributes.
-        attributes_offset = self._offset
+        r.set_read_attributes_func(self._offset, self._read_attributes)
         attr_count = self._read_unsigned_int()
         for _ in range(attr_count):
             self._skip_attribute_name_or_index()
             self._skip_unsigned_long()
 
-        def read_attributes() -> Dict[str, Address]:
-            self._offset = attributes_offset
-
-            dict_size = self._read_unsigned_int()
-            result = {}
-            for _ in range(dict_size):
-                length_or_index = self._read_signed_short()
-                if length_or_index >= 0:
-                    k = self._read_string_with_known_length(length_or_index)
-                else:
-                    true_index = -1 * (length_or_index + 1)
-                    k = self._frequent_attrs[true_index]
-                v = self._read(Address)
-                result[k] = v
-            return result
-
-        r.set_read_attributes_func(read_attributes)
-
         # Skip the string representation.
         if self._flags.with_str_repr:
-            string_repr_offset = self._offset
+            r.set_read_str_repr_func(self._offset, self._read_str_repr)
             self._skip_long_string()
 
-            def read_str_repr() -> str:
-                self._offset = string_repr_offset
-                return self._read_long_string()
-
-            r.set_read_str_repr_func(read_str_repr)
-
         return r
+
+    def _read_attributes(self, offset: int) -> Dict[str, Address]:
+        self._offset = offset
+
+        dict_size = self._read_unsigned_int()
+        result = {}
+        for _ in range(dict_size):
+            length_or_index = self._read_signed_short()
+            if length_or_index >= 0:
+                k = self._read_string_with_known_length(length_or_index)
+            else:
+                true_index = -1 * (length_or_index + 1)
+                k = self._frequent_attrs[true_index]
+            v = self._read(Address)
+            result[k] = v
+        return result
+
+    def _read_str_repr(self, offset: int) -> str:
+        self._offset = offset
+        return self._read_long_string()
 
     def _read_heap_flags(self) -> HeapFlags:
         flag_with_str_repr = 1
