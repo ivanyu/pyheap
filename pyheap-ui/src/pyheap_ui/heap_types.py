@@ -67,6 +67,9 @@ class HeapThread:
         return result
 
 
+AttributeName = NewType("AttributeName", str)
+
+
 @dataclass
 class HeapObject:
     type: Address
@@ -75,12 +78,14 @@ class HeapObject:
 
     def __post_init__(self) -> None:
         self._attributes_offset: Optional[int] = None
-        self._read_attributes_func: Optional[Callable[[int], Dict[str, Address]]] = None
+        self._read_attributes_func: Optional[
+            Callable[[int], Dict[AttributeName, Address]]
+        ] = None
         self._str_repr_offset: Optional[int] = None
         self._read_str_repr_func: Optional[Callable[[int], str]] = None
 
     def set_read_attributes_func(
-        self, offset: int, func: Callable[[int], Dict[str, Address]]
+        self, offset: int, func: Callable[[int], Dict[AttributeName, Address]]
     ) -> None:
         self._attributes_offset = offset
         self._read_attributes_func = func
@@ -90,7 +95,7 @@ class HeapObject:
         self._read_str_repr_func = func
 
     @property
-    def attributes(self) -> Dict[str, Address]:
+    def attributes(self) -> Dict[AttributeName, Address]:
         return self._read_attributes_func(self._attributes_offset)
 
     @property

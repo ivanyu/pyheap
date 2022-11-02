@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import inspect
 import mmap
 import os
 import subprocess
@@ -60,11 +61,10 @@ def test_dumper(tmp_path: Path, dump_str_repr: bool) -> None:
     finally:
         os.remove(heap_file)
 
-    assert heap.header.version == 1
-    x = dateutil.parser.isoparse(heap.header.created_at)
-    assert (datetime.now(timezone.utc) - x).total_seconds() < 5 * 60
-    assert heap.header.flags.with_str_repr is dump_str_repr
+    _check_header(heap, dump_str_repr)
+    _check_common_types(heap, reader)
 
+    # Check threads and objects.
     under_debugger = sys.gettrace() is not None
     python_3_11 = (sys.version_info.major, sys.version_info.minor) == (3, 11)
     assert len(heap.threads) == (2 if not under_debugger or python_3_11 else 5)
@@ -331,3 +331,45 @@ def _find_type_by_name(heap: Heap, type_name: str) -> int:
             return int(type_address)
     else:
         raise ValueError("not found")
+
+
+def _check_header(heap: Heap, dump_str_repr: bool) -> None:
+    assert heap.header.version == 1
+    x = dateutil.parser.isoparse(heap.header.created_at)
+    assert (datetime.now(timezone.utc) - x).total_seconds() < 5 * 60
+    assert heap.header.flags.with_str_repr is dump_str_repr
+
+
+def _check_common_types(heap: Heap, reader: HeapReader) -> None:
+    expected_common_types_with_examples = {
+        int: 0,
+        float: 0.0,
+        bool: False,
+        str: "",
+        bytes: b"",
+        list: [],
+        set: set(),
+        dict: {},
+    }
+    assert len(expected_common_types_with_examples.keys()) == len(
+        reader._common_types.keys()
+    )
+
+    for type_, example in expected_common_types_with_examples.items():
+        type_name = type_.__name__
+        type_address = _find_type_by_name(heap, type_name)
+        assert heap.types[type_address] == type_name
+
+        common_type = reader._common_types[_find_type_by_name(heap, type_name)]
+
+        object_in_heap = next(
+            o for o in heap.objects.values() if o.type == type_address
+        )
+
+        assert list(common_type.attributes.keys()) == dir(example)
+        for attr in dir(example):
+            attr_value = inspect.getattr_static(example, attr)
+            assert (
+                type(attr_value).__name__
+                == heap.types[heap.objects[object_in_heap.attributes[attr]].type]
+            )
