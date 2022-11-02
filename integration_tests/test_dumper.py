@@ -18,6 +18,7 @@ import mmap
 import os
 import subprocess
 import sys
+from contextlib import closing
 from datetime import datetime, timezone
 from threading import Thread
 from unittest.mock import ANY
@@ -53,18 +54,23 @@ def test_dumper(tmp_path: Path, dump_str_repr: bool) -> None:
     try:
         with open(heap_file, "rb") as f:
             mm = mmap.mmap(f.fileno(), length=0, access=mmap.ACCESS_READ)
-            reader = HeapReader(mm)
-            heap = reader.read()
+            with closing(mm):
+                reader = HeapReader(mm)
+                heap = reader.read()
 
-            # Check that we have read everything.
-            assert reader._offset == mm.size()
+                # Check that we have read everything.
+                assert reader._offset == mm.size()
+
+                _check_threads_and_objects(heap, mock_inferior_file, dump_str_repr)
+                _check_header(heap, dump_str_repr)
+                _check_common_types(heap, reader)
     finally:
         os.remove(heap_file)
 
-    _check_header(heap, dump_str_repr)
-    _check_common_types(heap, reader)
 
-    # Check threads and objects.
+def _check_threads_and_objects(
+    heap: Heap, mock_inferior_file: str, dump_str_repr: bool
+) -> None:
     under_debugger = sys.gettrace() is not None
     python_3_11 = (sys.version_info.major, sys.version_info.minor) == (3, 11)
     assert len(heap.threads) == (2 if not under_debugger or python_3_11 else 5)
