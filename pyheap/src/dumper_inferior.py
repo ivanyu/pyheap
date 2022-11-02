@@ -22,7 +22,7 @@ import threading
 import time
 import traceback
 from types import FrameType
-from typing import List, Any, Dict, Tuple, BinaryIO
+from typing import List, Any, Dict, Tuple, BinaryIO, Set, Type
 import inspect
 from functools import lru_cache
 from datetime import datetime, timezone
@@ -120,6 +120,19 @@ class _HeapWriter:
         self._f.seek(offset)
         del self._marks[mark]
 
+    def write_attribute(
+        self,
+        attribute_name: str,
+        attribute_value: Any,
+        frequent_attributes: Dict[str, int],
+    ) -> None:
+        freq_attr_idx = frequent_attributes.get(attribute_name)
+        if freq_attr_idx is not None:
+            self.write_signed_short(-1 * freq_attr_idx - 1)
+        else:
+            self.write_short_string(attribute_name)
+        self.write_unsigned_long(id(attribute_value))
+
 
 def _dump_heap() -> str:
     global_start = time.monotonic()
@@ -133,6 +146,9 @@ def _dump_heap() -> str:
         all_locals = _write_threads_and_return_locals(writer, messages)
 
         frequent_attributes = _write_frequent_attributes(writer)
+        common_types, objects_to_visit = _write_common_types(
+            writer, frequent_attributes
+        )
 
         with closing(ProgressReporter(progress_file)) as progress_reporter:
             types, visited = _write_objects_and_return_types(
@@ -140,6 +156,8 @@ def _dump_heap() -> str:
                 gc_tracked_objects=gc_tracked_objects,
                 locals_=all_locals,
                 frequent_attributes=frequent_attributes,
+                common_types=common_types,
+                additional_objects_to_visit=objects_to_visit,
                 progress_reporter=progress_reporter,
             )
 
@@ -169,6 +187,7 @@ def _get_gc_tracked_objects() -> List[Any]:
     invisible_objects.add(id(_dump_heap))
     invisible_objects.add(id(_write_objects_and_return_types))
     invisible_objects.add(id(_write_frequent_attributes))
+    invisible_objects.add(id(_write_common_types))
     invisible_objects.add(id(_write_threads_and_return_locals))
     invisible_objects.add(id(_shadowed_dict_orig))
     invisible_objects.add(id(_check_class_orig))
@@ -289,7 +308,8 @@ def _write_frequent_attributes(writer: _HeapWriter) -> Dict[str, int]:
 
     import functools
 
-    frequent_attrs.update(dir(functools.cache))
+    if sys.version_info >= (3, 9):
+        frequent_attrs.update(dir(functools.cache))
     frequent_attrs.update(dir(functools.cached_property))
 
     import enum
@@ -350,19 +370,68 @@ def _write_frequent_attributes(writer: _HeapWriter) -> Dict[str, int]:
     return result
 
 
+def _write_common_types(
+    writer: _HeapWriter, frequent_attributes: Dict[str, int]
+) -> Tuple[Set[Type], List[Any]]:
+    """Write attributes of "common" types.
+
+    We consider "common" the most basic (and most frequent) types, which are not dict-based,
+    i.e. can't have attributes other than the built-in attributes.
+    """
+    common_types_and_examples = {
+        int: 0,
+        float: 0.0,
+        bool: False,
+        str: "",
+        bytes: b"",
+        list: [],
+        set: set(),
+        dict: {},
+    }
+    to_visit = []
+
+    writer.write_unsigned_int(len(common_types_and_examples))
+    for t, example in common_types_and_examples.items():
+        to_visit.append(t)
+
+        # Address
+        writer.write_unsigned_long(id(t))
+
+        # Attributes
+        attrs: List[Tuple[str, object]] = []
+        for attr in dir(example):
+            try:
+                attr_value = inspect.getattr_static(example, attr)
+                to_visit.append(attr_value)
+                attrs.append((attr, attr_value))
+            except (AttributeError, ValueError):
+                pass
+
+        writer.write_unsigned_int(len(attrs))
+        for attr, attr_value in attrs:
+            writer.write_attribute(attr, attr_value, frequent_attributes)
+
+    return set(common_types_and_examples.keys()), to_visit
+
+
 def _write_objects_and_return_types(
     *,
     writer: _HeapWriter,
     gc_tracked_objects: List[Any],
     locals_: List[Any],
     frequent_attributes: Dict[str, int],
+    common_types: Set[Type],
+    additional_objects_to_visit: List[Any],
     progress_reporter: ProgressReporter,
 ) -> Tuple[Dict[int, str], int]:
     seen_ids = set()
-    to_visit = []
+    to_visit: List[Any] = []
     to_visit.extend(gc_tracked_objects)
     to_visit.extend(locals_)
-    result_types: Dict[int, str] = {}
+    to_visit.extend(common_types)
+    to_visit.extend(additional_objects_to_visit)
+
+    result_types: Dict[int, str] = {id(t): t.__name__ for t in common_types}
 
     inspect._shadowed_dict = lru_cache(maxsize=None)(_shadowed_dict_orig)
     inspect._check_class = lru_cache(maxsize=None)(_check_class_orig)
@@ -404,25 +473,20 @@ def _write_objects_and_return_types(
         for r in referents:
             writer.write_unsigned_long(id(r))
 
-        # Attributes
-        attrs: List[Tuple[str, object]] = []
-        for attr in dir(obj):
-            try:
-                attr_value = inspect.getattr_static(obj, attr)
-                to_visit.append(attr_value)
-                attrs.append((attr, attr_value))
-            except (AttributeError, ValueError):
-                pass
+        # Attributes -- write them only for non-"common" types.
+        if type_ not in common_types:
+            attrs: List[Tuple[str, object]] = []
+            for attr in dir(obj):
+                try:
+                    attr_value = inspect.getattr_static(obj, attr)
+                    to_visit.append(attr_value)
+                    attrs.append((attr, attr_value))
+                except (AttributeError, ValueError):
+                    pass
 
-        writer.write_unsigned_int(len(attrs))
-        for attr, attr_value in attrs:
-            freq_attr_idx = frequent_attributes.get(attr)
-            if freq_attr_idx is not None:
-                writer.write_signed_short(-1 * freq_attr_idx - 1)
-            else:
-                writer.write_short_string(attr)
-
-            writer.write_unsigned_long(id(attr_value))
+            writer.write_unsigned_int(len(attrs))
+            for attr, attr_value in attrs:
+                writer.write_attribute(attr, attr_value, frequent_attributes)
 
         # String representation
         if str_repr_len >= 0:

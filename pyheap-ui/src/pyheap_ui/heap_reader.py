@@ -40,9 +40,15 @@ from pyheap_ui.heap_types import (
     UnsignedInt,
     HeapFlags,
     ObjectDict,
+    AttributeName,
 )
 
 T = TypeVar("T")
+
+
+@dataclasses.dataclass(frozen=True)
+class _CommonType:
+    attributes: Dict[AttributeName, Address]
 
 
 def cache_by_id(func: Callable[[Any], Any]) -> Callable[[Any], Any]:
@@ -84,6 +90,7 @@ class HeapReader:
 
         self._flags: Optional[HeapFlags] = None
         self._frequent_attrs: Optional[List[str]] = None
+        self._common_types: Optional[Dict[Address, _CommonType]] = None
 
     def read(self) -> Heap:
         # Header
@@ -107,6 +114,8 @@ class HeapReader:
             return self._read_heap_flags()
         elif type_ == ObjectDict:
             return self._read_object_dict()
+        elif type_ == AttributeName:
+            return self._read_attribute_name()
         elif self._is_dataclass(type_):
             return self._read_dataclass(type_)
         elif self._get_origin(type_) is list:
@@ -159,12 +168,18 @@ class HeapReader:
             referents=self._read(Set[Address]),
         )
 
-        # Skip the attributes.
-        r.set_read_attributes_func(self._offset, self._read_attributes)
-        attr_count = self._read_unsigned_int()
-        for _ in range(attr_count):
-            self._skip_attribute_name_or_index()
-            self._skip_unsigned_long()
+        # Attributes are present only for non-"common" types.
+        if r.type not in self._common_types:
+            # Skip the attributes.
+            r.set_read_attributes_func(self._offset, self._read_attributes)
+            attr_count = self._read_unsigned_int()
+            for _ in range(attr_count):
+                self._skip_attribute_name_or_index()
+                self._skip_unsigned_long()
+        else:
+            r.set_read_attributes_func(
+                -1, lambda _: self._common_types[r.type].attributes
+            )
 
         # Skip the string representation.
         if self._flags.with_str_repr:
@@ -173,21 +188,25 @@ class HeapReader:
 
         return r
 
-    def _read_attributes(self, offset: int) -> Dict[str, Address]:
+    def _read_attributes(self, offset: int) -> Dict[AttributeName, Address]:
         self._offset = offset
 
         dict_size = self._read_unsigned_int()
-        result = {}
+        result: Dict[AttributeName, Address] = {}
         for _ in range(dict_size):
-            length_or_index = self._read_signed_short()
-            if length_or_index >= 0:
-                k = self._read_string_with_known_length(length_or_index)
-            else:
-                true_index = -1 * (length_or_index + 1)
-                k = self._frequent_attrs[true_index]
+            k = self._read_attribute_name()
             v = self._read(Address)
             result[k] = v
         return result
+
+    def _read_attribute_name(self) -> AttributeName:
+        length_or_index = self._read_signed_short()
+        if length_or_index >= 0:
+            name = self._read_string_with_known_length(length_or_index)
+        else:
+            true_index = -1 * (length_or_index + 1)
+            name = self._frequent_attrs[true_index]
+        return AttributeName(name)
 
     def _read_str_repr(self, offset: int) -> str:
         self._offset = offset
@@ -202,6 +221,7 @@ class HeapReader:
 
     def _read_object_dict(self) -> ObjectDict:
         self._frequent_attrs = self._read_generic_list(List[str])
+        self._common_types = self._read_generic_dict(Dict[Address, _CommonType])
         r = ObjectDict(self._read_generic_dict(ObjectDict.__supertype__))
         return r
 

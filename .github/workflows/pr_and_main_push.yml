@@ -7,8 +7,8 @@ on:
   pull_request:
     branches: [ main ]
 jobs:
-  check_pyheap:
-    name: Run checks for PyHeap
+  check_and_test_pyheap:
+    name: Run checks and tests for PyHeap
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -31,6 +31,10 @@ jobs:
       - name: Check with Black
         working-directory: ./pyheap
         run: poetry run black --check .
+
+      - name: Run tests
+        working-directory: ./pyheap
+        run: poetry run pytest -vv tests
 
   check_and_test_pyheap_ui:
     name: Run checks and tests for PyHeap UI
@@ -57,7 +61,7 @@ jobs:
         working-directory: ./pyheap-ui
         run: poetry run black --check .
 
-      - name: Run tests for PyHeap UI
+      - name: Run tests
         working-directory: ./pyheap-ui
         run: poetry run pytest -vv tests
 
@@ -65,7 +69,7 @@ jobs:
     name: Run integration tests
     runs-on: ubuntu-latest
     needs:
-      - check_pyheap
+      - check_and_test_pyheap
       - check_and_test_pyheap_ui
     strategy:
       matrix:
