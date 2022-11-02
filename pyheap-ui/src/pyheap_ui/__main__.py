@@ -65,6 +65,7 @@ def threads() -> str:
         tab_threads_active=True,
         threads=heap.threads,
         objects=heap.objects,
+        retained_heap=retained_heap,
     )
 
 
@@ -109,7 +110,7 @@ def objects(address: int) -> str:
         obj=obj,
         type=heap.types[obj.type],
         objects=heap.objects,
-        retained_heap=retained_heap.get_for_object(address),
+        retained_heap=retained_heap,
     )
 
 
@@ -128,6 +129,7 @@ def objects_batch() -> JsonObject:
         obj_json["inbound_references"] = list(inbound_references[address])
         obj_json["address"] = address
         obj_json["str_repr"] = obj.str_repr
+        obj_json["retained_heap"] = retained_heap.get_for_object(address)
         result.append(obj_json)
     return {"objects": result}
 
@@ -141,6 +143,7 @@ def api_object_get(address: int) -> JsonObject:
     result = dict(obj.to_json())
     result["type"] = heap.types[obj.type]
     result["inbound_references"] = list(heap.inbound_references[address])
+    result["retained_heap"] = retained_heap.get_for_object(address)
     return result
 
 
