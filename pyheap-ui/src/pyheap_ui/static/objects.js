@@ -59,16 +59,8 @@ class ObjectTreeView {
     }
 
     createExpandButton(li, onExpand) {
-        const iconCollapsed = $(`
-            <svg xmlns="http://www.w3.org/2000/svg" width="0.9em" height="0.9em" fill="currentColor" class="bi bi-caret-right" viewBox="0 0 16 16">
-                <path d="m12.14 8.753-5.482 4.796c-.646.566-1.658.106-1.658-.753V3.204a1 1 0 0 1 1.659-.753l5.48 4.796a1 1 0 0 1 0 1.506z"/>
-            </svg>
-        `);
-        const iconExpanded = $(`
-            <svg xmlns="http://www.w3.org/2000/svg" width="0.9em" height="0.9em" fill="currentColor" class="bi bi-caret-down-fill" viewBox="0 0 16 16">
-                <path d="M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z"/>
-            </svg>
-        `);
+        const iconCollapsed = $(`<i class="bi bi-caret-right-fill"></i>`);
+        const iconExpanded = $(`<i class="bi bi-caret-down-fill"></i>`);
 
         const button = $(`<span style="cursor: pointer; "><span>`).append(iconCollapsed);
         button.collapsed = true;
@@ -117,11 +109,11 @@ class ObjectTreeView {
         const expandButton = this.createExpandButton(li);
         li.append(expandButton);
         li.append(`
-            <a href="/objects/${escapeHtml(object.address)}" title="Address: ${escapeHtml(object.address)}">
-                <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="currentColor" class="bi bi-box-arrow-up-right" viewBox="0 0 16 16">
-                    <path fill-rule="evenodd" d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>
-                    <path fill-rule="evenodd" d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z"/>
-                </svg></a>
+            <a href="/objects/${escapeHtml(object.address)}" title="Address: ${escapeHtml(object.address)}"><i class="bi bi-link-45deg"></i></a>
+            <span title="Retained heap, B" class="text-muted">
+                [<i class="bi bi-lock"></i>
+                ${escapeHtml(object.retained_heap)}]
+            </span>
             <code>${escapeHtml(object.type)}</code>
         `);
         if (object.str_repr !== null) {
