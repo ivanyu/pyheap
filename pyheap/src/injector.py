@@ -15,6 +15,7 @@
 #
 from __future__ import annotations
 
+import base64
 from contextlib import closing
 from typing import Optional
 
@@ -26,6 +27,7 @@ This module is executed in the context of GDB's own Python interpreter.
 
 Pointer = int
 _NULL = 0
+_BUILTINS = "__builtins__"
 
 
 class InjectorException(Exception):
@@ -38,6 +40,9 @@ def _get_ptr(expression: str) -> Pointer:
 
 class _GlobalsDict:
     def __init__(self, **kwargs: str | int) -> None:
+        if _BUILTINS in kwargs:
+            raise ValueError(f"{_BUILTINS} is not explicitly supported")
+
         # Doc: https://docs.python.org/3/c-api/arg.html#c.Py_BuildValue
         format_items = []
         param_items = []
@@ -57,6 +62,15 @@ class _GlobalsDict:
         self._ptr = _get_ptr(f'(void*) Py_BuildValue("{format_str}", {param_str})')
         if self._ptr == _NULL:
             raise InjectorException("Error calling Py_BuildValue")
+
+        # Add __builtins__.
+        set_items_result = _get_ptr(
+            f'PyDict_SetItemString({self._ptr}, "{_BUILTINS}", _PyInterpreterState_Get()->builtins)'
+        )
+        if set_items_result < 0:
+            raise InjectorException(
+                f"Error calling PyDict_SetItemString to set {_BUILTINS}"
+            )
 
     @property
     def ptr(self) -> Pointer:
@@ -83,18 +97,37 @@ class _GlobalsDict:
         gdb.parse_and_eval(f"(void)Py_DecRef({self.ptr})")
 
 
-class _FP:
-    def __init__(self, path: str) -> None:
-        self._fp = _get_ptr(f'(void*) fopen("{path}", "r")')
-        if self._fp == _NULL:
-            raise InjectorException(f"Error opening {path}")
+class _DumperCode:
+    COMPILED_FILE_NAME = "<pyheap>"
 
-    @property
-    def ptr(self) -> Pointer:
-        return self._fp
+    def __init__(self, dumper_code_b64: str) -> None:
+        code_bytes = base64.b64decode(dumper_code_b64.encode("utf-8"))
+        code_char_string = "".join([hex(b).replace("0x", r"\x") for b in code_bytes])
+
+        self._result_ptr: Pointer = _NULL
+
+        # Doc: https://docs.python.org/3/c-api/veryhigh.html#c.PyRun_File
+        Py_file_input = 257  # include/compile.h
+        self._code_ptr: Pointer = _get_ptr(
+            f'(void*) Py_CompileString("{code_char_string}", "{self.COMPILED_FILE_NAME}", {Py_file_input})'
+        )
+        if self._code_ptr == _NULL:
+            raise InjectorException("Error calling Py_CompileString")
+
+    def run(self, globals_dict: _GlobalsDict) -> None:
+        locals_ptr = "(void*) 0"
+        self._result_ptr = _get_ptr(
+            f"(void*) PyEval_EvalCode({self._code_ptr}, {globals_dict.ptr}, {locals_ptr})"
+        )
+        if self._result_ptr == _NULL:
+            raise InjectorException("Error calling PyEval_EvalCode")
 
     def close(self) -> None:
-        gdb.parse_and_eval(f"fclose({self.ptr})")
+        # Doc: https://docs.python.org/3/c-api/refcounting.html#c.Py_DecRef
+        if self._code_ptr != _NULL:
+            gdb.parse_and_eval(f"(void) Py_DecRef({self._code_ptr})")
+        if self._result_ptr != _NULL:
+            gdb.parse_and_eval(f"(void) Py_DecRef({self._result_ptr})")
 
 
 class DumpPythonHeap(gdb.Function):
@@ -103,13 +136,15 @@ class DumpPythonHeap(gdb.Function):
 
     def invoke(
         self,
-        dumper_path: gdb.Value,
+        dumper_code_b64: gdb.Value,
         heap_file: gdb.Value,
         str_repr_len: gdb.Value,
         progress_file: gdb.Value,
     ) -> str:
         try:
-            return self._invoke0(dumper_path, heap_file, str_repr_len, progress_file)
+            return self._invoke0(
+                dumper_code_b64, heap_file, str_repr_len, progress_file
+            )
         except Exception as e:
             import traceback
 
@@ -118,12 +153,12 @@ class DumpPythonHeap(gdb.Function):
 
     def _invoke0(
         self,
-        dumper_path: gdb.Value,
+        dumper_code_b64: gdb.Value,
         heap_file: gdb.Value,
         str_repr_len: gdb.Value,
         progress_file: gdb.Value,
     ) -> str:
-        dumper_path_str = dumper_path.string()
+        dumper_code_b64_str = dumper_code_b64.string()
         heap_file_str = heap_file.string()
 
         if str_repr_len.type.name != "int":
@@ -132,28 +167,16 @@ class DumpPythonHeap(gdb.Function):
 
         progress_file_str = progress_file.string()
 
+        dumper_code = _DumperCode(dumper_code_b64_str)
         globals_dict = _GlobalsDict(
-            __file__=dumper_path_str,
+            __file__=dumper_code.COMPILED_FILE_NAME,
             heap_file=heap_file_str,
             str_repr_len=str_repr_len_int,
             progress_file=progress_file_str,
         )
-        with closing(globals_dict) as globals_dict, closing(_FP(dumper_path_str)) as fp:
-            self._run_file(
-                fp=fp, dumper_path_str=dumper_path_str, globals_dict=globals_dict
-            )
+        with closing(globals_dict) as globals_dict, closing(dumper_code) as dumper_code:
+            dumper_code.run(globals_dict)
             return globals_dict.get_str("result") or "Error getting result"
-
-    @staticmethod
-    def _run_file(*, fp: _FP, dumper_path_str: str, globals_dict: _GlobalsDict) -> None:
-        # Doc: https://docs.python.org/3/c-api/veryhigh.html#c.PyRun_File
-        Py_file_input = 257  # include/compile.h
-        locals_ptr = "(void*) 0"
-        r = _get_ptr(
-            f'(void*) PyRun_File({fp.ptr}, "{dumper_path_str}", {Py_file_input}, {globals_dict.ptr}, {locals_ptr})'
-        )
-        if r == _NULL:
-            raise InjectorException("Error calling PyRun_File")
 
 
 DumpPythonHeap()

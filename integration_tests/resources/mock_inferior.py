@@ -54,15 +54,19 @@ def function3(a: int) -> None:
     dumper_path = str(
         Path(__file__).parent.parent.parent / "pyheap" / "src" / "dumper_inferior.py"
     )
-    import runpy
+    compiled_file_name = "<pyheap>"
+    with open(dumper_path, "r") as f:
+        code = compile(f.read(), compiled_file_name, mode="exec")
 
     progress_file_path = os.path.join(
         tempfile.mkdtemp(prefix="pyheap-"), "progress.json"
     )
     Path(progress_file_path).touch(mode=0o622, exist_ok=False)  # rw--w--w-
-    runpy.run_path(
-        path_name=dumper_path,
-        init_globals={
+
+    eval(
+        code,
+        {
+            "__file__": compiled_file_name,
             "heap_file": heap_file,
             "str_repr_len": 1000 if dump_str_repr else -1,
             "progress_file": progress_file_path,
