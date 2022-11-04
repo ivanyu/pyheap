@@ -22,12 +22,13 @@ import threading
 import time
 import traceback
 from types import FrameType
-from typing import List, Any, Dict, Tuple, BinaryIO, Set, Type
+from typing import List, Any, Dict, Tuple, BinaryIO, Set, Type, Optional
 import inspect
 from functools import lru_cache
 from datetime import datetime, timezone
 import struct
 from uuid import UUID, uuid4
+from typing.io import IO
 
 """
 This module is executed in the context of the inferior.
@@ -509,10 +510,20 @@ class ProgressReporter:
     _GRANULARITY = 1_000
 
     def __init__(self, path: str) -> None:
-        self._f = open(path, "w")
+        self._f: Optional[IO] = None
+
+        if path:
+            try:
+                self._f = open(path, "w")
+            except OSError:
+                self._f = None
+
         self._started = time.monotonic()
 
     def report(self, done: int, remain: int) -> None:
+        if self._f is None:
+            return
+
         if done % ProgressReporter._GRANULARITY == 0:
             self._f.seek(0)
             self._f.truncate()
@@ -528,7 +539,8 @@ class ProgressReporter:
             self._f.flush()
 
     def close(self) -> None:
-        self._f.close()
+        if self._f is not None:
+            self._f.close()
 
 
 _shadowed_dict_orig = inspect._shadowed_dict

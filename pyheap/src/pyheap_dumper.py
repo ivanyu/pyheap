@@ -38,10 +38,15 @@ def dump_heap(args: argparse.Namespace) -> None:
 
     dumper_code = _prepare_dumper_code(module_path)
 
-    progress_file_path = os.path.join(
-        tempfile.mkdtemp(prefix="pyheap-"), "progress.json"
-    )
-    Path(progress_file_path).touch(mode=0o622, exist_ok=False)  # rw--w--w-
+    try:
+        progress_file_path = os.path.join(
+            tempfile.mkdtemp(prefix="pyheap-"), "progress.json"
+        )
+        Path(progress_file_path).touch(mode=0o622, exist_ok=False)  # rw--w--w-
+    except OSError as e:
+        print(f"Error creating progress file: {e}, progress will not be reported")
+        progress_file_path = ""
+    progress_file_path = ""
 
     cmd = [
         "gdb",
@@ -75,7 +80,12 @@ def dump_heap(args: argparse.Namespace) -> None:
     )
     progress_tracker.track_progress()
     p.communicate()
-    os.remove(progress_file_path)
+
+    if progress_file_path:
+        try:
+            os.remove(progress_file_path)
+        except OSError as e:
+            print(f"Error deleting progress file '{progress_file_path}': {e}")
 
 
 def _prepare_dumper_code(module_path: Path) -> str:
@@ -126,14 +136,21 @@ class ProgressTracker:
 
     def _read_progress(self) -> Optional[Progress]:
         progress: Optional[Progress] = None
-        with open(self._progress_file_path, "r") as f:
-            content = f.read()
-            # We check that the record is properly finalized as writes are not expected to be atomic.
-            if content.endswith("\n"):
-                try:
-                    progress = Progress.from_json(json.loads(content))
-                except json.decoder.JSONDecodeError:
-                    pass  # intentionally no-op
+
+        if not self._progress_file_path:
+            return progress
+
+        try:
+            with open(self._progress_file_path, "r") as f:
+                content = f.read()
+                # We check that the record is properly finalized as writes are not expected to be atomic.
+                if content.endswith("\n"):
+                    try:
+                        progress = Progress.from_json(json.loads(content))
+                    except json.decoder.JSONDecodeError:
+                        pass  # intentionally no-op
+        except OSError as e:
+            print(f"Error reading progress file '{self._progress_file_path}': {e}")
         return progress
 
     def _display(self, progress: Progress) -> None:
