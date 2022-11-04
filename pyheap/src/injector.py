@@ -166,6 +166,10 @@ class DumpPythonHeap(gdb.Function):
         str_repr_len_int = int(str_repr_len)
 
         progress_file_str = progress_file.string()
+        if not progress_file_str:
+            print(
+                f"Progress file is '{progress_file_str}', progress will not be reported"
+            )
 
         dumper_code = _DumperCode(dumper_code_b64_str)
         globals_dict = _GlobalsDict(
