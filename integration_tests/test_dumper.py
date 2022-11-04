@@ -81,34 +81,19 @@ def _check_threads_and_objects(
     )
 
     assert len(main_thread.stack_trace) == (
-        7 if not under_debugger or python_3_11 else 12
+        4 if not under_debugger or python_3_11 else 9
     )
 
     frame = main_thread.stack_trace[0]
-    if python_3_11:
-        assert frame.co_filename == "<frozen runpy>"
-    else:
-        assert frame.co_filename.endswith("/runpy.py")
-    frame = main_thread.stack_trace[1]
-    if python_3_11:
-        assert frame.co_filename == "<frozen runpy>"
-    else:
-        assert frame.co_filename.endswith("/runpy.py")
-    frame = main_thread.stack_trace[2]
-    if python_3_11:
-        assert frame.co_filename == "<frozen runpy>"
-    else:
-        assert frame.co_filename.endswith("/runpy.py")
-    assert frame.co_name == "run_path"
-
-    frame = main_thread.stack_trace[3]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 63
+    assert frame.lineno == 66
     assert frame.co_name == "function3"
     assert set(frame.locals.keys()) == {
         "a",
+        "f",
+        "code",
         "dumper_path",
-        "runpy",
+        "compiled_file_name",
         "progress_file_path",
     }
 
@@ -130,13 +115,11 @@ def _check_threads_and_objects(
         else None
     )
 
-    assert heap.objects[frame.locals["runpy"]].type == _find_type_by_name(
-        heap, "module"
-    )
+    assert heap.objects[frame.locals["code"]].type == _find_type_by_name(heap, "code")
 
-    frame = main_thread.stack_trace[4]
+    frame = main_thread.stack_trace[1]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 74
+    assert frame.lineno == 78
     assert frame.co_name == "function2"
     assert set(frame.locals.keys()) == {"a", "b"}
     obj = heap.objects[frame.locals["a"]]
@@ -153,9 +136,9 @@ def _check_threads_and_objects(
     assert obj.attributes.keys() == _ATTRS_FOR_STR
     assert obj.str_repr == ("leaf" if dump_str_repr else None)
 
-    frame = main_thread.stack_trace[5]
+    frame = main_thread.stack_trace[2]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 78
+    assert frame.lineno == 82
     assert frame.co_name == "function1"
     assert set(frame.locals.keys()) == {"a", "b", "c"}
 
@@ -180,9 +163,9 @@ def _check_threads_and_objects(
     assert obj.attributes.keys() == _ATTRS_FOR_FLOAT
     assert obj.str_repr == ("12.5" if dump_str_repr else None)
 
-    frame = main_thread.stack_trace[6]
+    frame = main_thread.stack_trace[3]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 81
+    assert frame.lineno == 85
     assert frame.co_name == "<module>"
     expected_locals = {
         "__name__",

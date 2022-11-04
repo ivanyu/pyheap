@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os.path
 from dataclasses import dataclass
@@ -32,10 +33,10 @@ def dump_heap(args: argparse.Namespace) -> None:
     print(f"Max length of string representation is {args.str_repr_len}")
 
     module_path = Path(__file__).parent
-    dumper_inferior_path = module_path / "dumper_inferior.py"
     injector_path = module_path / "injector.py"
-    print(f"Code path: {dumper_inferior_path}")
     print(f"Injector path: {injector_path}")
+
+    dumper_code = _prepare_dumper_code(module_path)
 
     progress_file_path = os.path.join(
         tempfile.mkdtemp(prefix="pyheap-"), "progress.json"
@@ -58,7 +59,9 @@ def dump_heap(args: argparse.Namespace) -> None:
         "-ex",
         "set print elements 0",
         "-ex",
-        f'print $dump_python_heap("{dumper_inferior_path}", "{abs_file_path}", {args.str_repr_len}, "{progress_file_path}")',
+        "set max-value-size unlimited",
+        "-ex",
+        f'print $dump_python_heap("{dumper_code}", "{abs_file_path}", {args.str_repr_len}, "{progress_file_path}")',
         "-ex",
         "detach",
         "-ex",
@@ -73,6 +76,14 @@ def dump_heap(args: argparse.Namespace) -> None:
     progress_tracker.track_progress()
     p.communicate()
     os.remove(progress_file_path)
+
+
+def _prepare_dumper_code(module_path: Path) -> str:
+    dumper_inferior_path = module_path / "dumper_inferior.py"
+    print(f"Code path: {dumper_inferior_path}")
+    with open(dumper_inferior_path, "r") as f:
+        code = f.read()
+    return base64.b64encode(code.encode("utf-8")).decode("utf-8")
 
 
 @dataclass
