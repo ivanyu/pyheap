@@ -28,8 +28,8 @@ from typing import Optional, Dict, Any, Callable
 
 
 def dump_heap(args: argparse.Namespace) -> None:
-    abs_file_path = os.path.abspath(args.file)
-    print(f"Dumping heap from process {args.pid} into {abs_file_path}")
+    heap_file_path = args.file
+    print(f"Dumping heap from process {args.pid} into {heap_file_path}")
     print(f"Max length of string representation is {args.str_repr_len}")
 
     module_path = Path(__file__).parent
@@ -61,7 +61,7 @@ def dump_heap(args: argparse.Namespace) -> None:
         "-ex",
         "set max-value-size unlimited",
         "-ex",
-        f'print $dump_python_heap("{dumper_code}", "{abs_file_path}", {args.str_repr_len}, "{progress_file_path}")',
+        f'print $dump_python_heap("{dumper_code}", "{heap_file_path}", {args.str_repr_len}, "{progress_file_path}")',
         "-ex",
         "detach",
         "-ex",
