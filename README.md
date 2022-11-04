@@ -28,8 +28,10 @@ Find the PID of a running CPython process you're interested in.
 
 Run:
 ```bash
-$ python3 pyheap/src/pyheap_dumper.py --pid <pid> --file heap.pyheap
+$ python3 pyheap/src/pyheap_dumper.py --pid <pid> --file $(pwd)/heap.pyheap
 ```
+
+Please note that the heap file path will be used by target process so make sure it exists for it (e.g. if it is in a separate mount namespace) and is writable.
 
 See 
 ```bash
