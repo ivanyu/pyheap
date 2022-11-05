@@ -39,10 +39,15 @@ MyThread().start()
 
 
 # Function calls.
-def f(a, b):
+def f2(a, b, c):
     print("Calling")
     time.sleep(1)
 
 
+def f1(a, b):
+    eval("123")  # prevent frame optimizations`
+    f2(a, b, None)
+
+
 while True:
-    f(["local-3"], "local-4")
+    f1(["local-3"], "local-4")

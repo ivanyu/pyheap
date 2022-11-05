@@ -130,3 +130,13 @@ Currently, the dumper sees objects traced by the CPython garbage collector and t
 
 The thread stacks and their locals are not analyzed at the moment.
 
+## Development
+
+### Integration tests
+
+Integration tests run on CI. However, end-to-end tests that use the real GDB cannot be run in Github Actions. You can run them locally using
+```bash
+make integration_tests
+```
+
+You need [pyenv](https://github.com/pyenv/pyenv) with Python 3.8, 3.9, 3.10, and 3.11 installed and [Poetry](https://python-poetry.org/).
