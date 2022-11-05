@@ -46,7 +46,6 @@ def dump_heap(args: argparse.Namespace) -> None:
     except OSError as e:
         print(f"Error creating progress file: {e}, progress will not be reported")
         progress_file_path = ""
-    progress_file_path = ""
 
     cmd = [
         "gdb",
