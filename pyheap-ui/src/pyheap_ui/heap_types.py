@@ -15,7 +15,8 @@
 #
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Annotated, NewType, Dict, List, Set, Optional, Callable, Any, Mapping
+from typing import Dict, List, Set, Optional, Callable, Any, Mapping
+from typing_extensions import Annotated, NewType
 
 
 class IntType(Enum):
