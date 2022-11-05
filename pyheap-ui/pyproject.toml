@@ -7,7 +7,7 @@ license = "Apache License 2.0"
 packages = [{include = "pyheap_ui", from = "src"}]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.8"
 Flask = "^2.2.2"
 Jinja2 = "^3.1.2"
 typing-extensions = "^4.4.0"
