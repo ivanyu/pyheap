@@ -43,8 +43,8 @@ def test_dumper(tmp_path: Path, dump_str_repr: bool) -> None:
         stderr=subprocess.PIPE,
     )
 
-    print(r.stdout)
-    print(r.stderr)
+    print(r.stdout.decode("utf-8"))
+    print(r.stderr.decode("utf-8"))
 
     # Not all errors may be propagated as return code
     assert r.returncode == 0
@@ -86,7 +86,7 @@ def _check_threads_and_objects(
 
     frame = main_thread.stack_trace[0]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 66
+    assert frame.lineno == 96
     assert frame.co_name == "function3"
     assert set(frame.locals.keys()) == {
         "a",
@@ -119,7 +119,7 @@ def _check_threads_and_objects(
 
     frame = main_thread.stack_trace[1]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 78
+    assert frame.lineno == 108
     assert frame.co_name == "function2"
     assert set(frame.locals.keys()) == {"a", "b"}
     obj = heap.objects[frame.locals["a"]]
@@ -138,7 +138,7 @@ def _check_threads_and_objects(
 
     frame = main_thread.stack_trace[2]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 82
+    assert frame.lineno == 112
     assert frame.co_name == "function1"
     assert set(frame.locals.keys()) == {"a", "b", "c"}
 
@@ -165,7 +165,7 @@ def _check_threads_and_objects(
 
     frame = main_thread.stack_trace[3]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 85
+    assert frame.lineno == 115
     assert frame.co_name == "<module>"
     expected_locals = {
         "__name__",
@@ -184,11 +184,14 @@ def _check_threads_and_objects(
         "time",
         "Path",
         "Any",
+        "NoReturn",
         "Thread",
         "Event",
         "heap_file",
         "MyThread",
         "my_thread",
+        "DisabledOperations",
+        "disabled_operations",
         "some_string",
         "some_list",
         "some_tuple",
@@ -206,6 +209,14 @@ def _check_threads_and_objects(
     )
     assert obj.attributes.keys() == _ATTRS_FOR_STR
     assert obj.str_repr == ("hello world" if dump_str_repr else None)
+
+    obj = heap.objects[frame.locals["disabled_operations"]]
+    disabled_operations_type = _find_type_by_name(heap, "DisabledOperations")
+    assert obj == HeapObject(
+        type=disabled_operations_type, size=0, referents={disabled_operations_type}
+    )
+    assert obj.attributes == {}
+    assert obj.str_repr == ("<ERROR on __str__>" if dump_str_repr else None)
 
     obj = heap.objects[frame.locals["some_list"]]
     # assert obj.address == frame.locals["some_list"]
@@ -252,7 +263,7 @@ def _check_threads_and_objects(
 
     frame = second_thread.stack_trace[0]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 35
+    assert frame.lineno == 65
     assert frame.co_name == "_thread_inner"
     assert set(frame.locals.keys()) == {
         "self",
@@ -278,7 +289,7 @@ def _check_threads_and_objects(
 
     frame = second_thread.stack_trace[1]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 38
+    assert frame.lineno == 68
     assert frame.co_name == "run"
     assert set(frame.locals.keys()) == {"self", "__class__"}
 

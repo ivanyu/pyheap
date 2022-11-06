@@ -161,6 +161,7 @@ def _dump_heap() -> str:
                 common_types=common_types,
                 additional_objects_to_visit=objects_to_visit,
                 progress_reporter=progress_reporter,
+                messages=messages,
             )
 
         writer.write_unsigned_int(len(types))
@@ -426,6 +427,7 @@ def _write_objects_and_return_types(
     common_types: Set[Type],
     additional_objects_to_visit: List[Any],
     progress_reporter: ProgressReporter,
+    messages: List[str],
 ) -> Tuple[Dict[int, str], int]:
     seen_ids = set()
     to_visit: List[Any] = []
@@ -468,8 +470,14 @@ def _write_objects_and_return_types(
         writer.write_unsigned_long(id(obj))
         # Type
         writer.write_unsigned_long(id(type_))
+
         # Size
-        writer.write_unsigned_int(sys.getsizeof(obj))
+        obj_size = 0
+        try:
+            obj_size = sys.getsizeof(obj)
+        except Exception as e:
+            messages.append(f"Error getting size of {type_}: {e}")
+        writer.write_unsigned_int(obj_size)
 
         # Referents
         writer.write_unsigned_int(len(referents))
@@ -479,13 +487,16 @@ def _write_objects_and_return_types(
         # Attributes -- write them only for non-"common" types.
         if type_ not in common_types:
             attrs: List[Tuple[str, object]] = []
-            for attr in dir(obj):
-                try:
-                    attr_value = inspect.getattr_static(obj, attr)
-                    to_visit.append(attr_value)
-                    attrs.append((attr, attr_value))
-                except (AttributeError, ValueError):
-                    pass
+            try:
+                for attr in dir(obj):
+                    try:
+                        attr_value = inspect.getattr_static(obj, attr)
+                        to_visit.append(attr_value)
+                        attrs.append((attr, attr_value))
+                    except (AttributeError, ValueError):
+                        pass
+            except Exception as e:
+                messages.append(f"Error collecting attributes of type {type_}: {e}")
 
             writer.write_unsigned_int(len(attrs))
             for attr, attr_value in attrs:

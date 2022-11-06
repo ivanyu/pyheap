@@ -13,15 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import mmap
 import os
 import subprocess
 import sys
 import time
-from contextlib import contextmanager
+from contextlib import contextmanager, closing
 from pathlib import Path
 from typing import Iterator
-
 import pytest
+from pyheap_ui.heap_reader import HeapReader
 
 
 def test_e2e(test_heap_path: str) -> None:
@@ -31,6 +32,14 @@ def test_e2e(test_heap_path: str) -> None:
         dp.wait(10)
         assert dp.returncode == 0
         assert os.path.exists(test_heap_path)
+
+        with open(test_heap_path, "rb") as f:
+            mm = mmap.mmap(f.fileno(), length=0, access=mmap.ACCESS_READ)
+            with closing(mm):
+                reader = HeapReader(mm)
+                reader.read()
+                # Check that we have read everything.
+                assert reader._offset == mm.size()
 
 
 @pytest.fixture
@@ -80,6 +89,7 @@ def _dumper_process(
     try:
         yield dumper_proc
     finally:
-        print(dumper_proc.stdout.read().decode("utf-8"))
-        print(dumper_proc.stderr.read().decode("utf-8"))
         dumper_proc.kill()
+        out, err = dumper_proc.communicate(timeout=5)
+        print(out.decode("utf-8"))
+        print(err.decode("utf-8"))

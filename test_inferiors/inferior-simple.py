@@ -15,6 +15,7 @@
 #
 import time
 from threading import Thread
+from typing import Any, NoReturn
 
 # Circular reference
 a = ["a"]
@@ -23,6 +24,36 @@ a.append(a)
 huge_string = "x" * 1_000_000
 
 huge_list = ["x" * 100_000]
+
+
+class DisabledOperations:
+    def __new__(cls) -> "DisabledOperations":
+        prohibited = {
+            "__dir__",
+            "__str__",
+            "__repr__",
+            "__doc__",
+            "__eq__",
+            "__ge__",
+            "__gt__",
+            "__getattribute__",
+            "__hash__",
+            "__le__",
+            "__lt__",
+            "__ne__",
+            "__setattr__",
+            "__sizeof__",
+        }
+        for attr in prohibited:
+
+            def error(*args: Any, **kwargs: Any) -> NoReturn:
+                raise ValueError(f"prohibited to call {attr}")
+
+            setattr(cls, attr, error)
+        return super().__new__(cls)
+
+
+disabled_operations = DisabledOperations()
 
 
 # Thread.
