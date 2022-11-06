@@ -65,11 +65,11 @@ def dump_heap(args: argparse.Namespace) -> None:
         "-ex",
         "set max-value-size unlimited",
         "-ex",
-        f'print $dump_python_heap("{dumper_code}", "{heap_file_path}", {args.str_repr_len}, "{progress_file_path}")',
+        f'set $dump_success = $dump_python_heap("{dumper_code}", "{heap_file_path}", {args.str_repr_len}, "{progress_file_path}")',
         "-ex",
         "detach",
         "-ex",
-        "quit",
+        "quit $dump_success",
         "-p",
         str(args.pid),
     ]
@@ -85,6 +85,8 @@ def dump_heap(args: argparse.Namespace) -> None:
             os.remove(progress_file_path)
         except OSError as e:
             print(f"Error deleting progress file '{progress_file_path}': {e}")
+
+    exit(p.returncode)
 
 
 def _prepare_dumper_code(module_path: Path) -> str:
