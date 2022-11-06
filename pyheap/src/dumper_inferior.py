@@ -45,7 +45,8 @@ str_repr_len: int
 progress_file: str
 
 # Output:
-result = None
+result = ""  # avoid dealing with None
+result_error = ""  # avoid dealing with None
 
 # Max negative range of short int. "-1" because the indexing starts with 1.
 _MAX_FREQUENT_ATTR_COUNT = (0b111111111111111 + 1) - 1
@@ -185,6 +186,7 @@ def _get_gc_tracked_objects() -> List[Any]:
     invisible_objects.add(id(heap_file))
     invisible_objects.add(id(str_repr_len))
     invisible_objects.add(id(result))
+    invisible_objects.add(id(result_error))
     invisible_objects.add(id(_dump_heap))
     invisible_objects.add(id(_write_objects_and_return_types))
     invisible_objects.add(id(_write_frequent_attributes))
@@ -550,7 +552,7 @@ try:
     result = _dump_heap()
 except:
     print(traceback.format_exc())
-    result = traceback.format_exc()
+    result_error = traceback.format_exc()
 finally:
     inspect._shadowed_dict = _shadowed_dict_orig
     inspect._check_class = _check_class_orig

@@ -66,7 +66,8 @@ class _GlobalsDict:
     def get_str(self, key: str) -> Optional[str]:
         ptr = self._get(key)
         if ptr == _NULL:
-            return None
+            raise InjectorException(f"Error on getting by dict key {key}")
+
         # Doc: https://docs.python.org/3/c-api/unicode.html#c.PyUnicode_AsUTF8
         result = gdb.parse_and_eval(
             f"(char*) PyUnicode_AsUTF8({ptr})"
@@ -94,7 +95,7 @@ class DumpPythonHeap(gdb.Function):
         heap_file: gdb.Value,
         str_repr_len: gdb.Value,
         progress_file: gdb.Value,
-    ) -> str:
+    ) -> int:
         try:
             return self._invoke0(
                 dumper_code_b64, heap_file, str_repr_len, progress_file
@@ -103,7 +104,7 @@ class DumpPythonHeap(gdb.Function):
             import traceback
 
             traceback.print_exception(e)
-            raise
+            return 1
 
     def _invoke0(
         self,
@@ -111,7 +112,7 @@ class DumpPythonHeap(gdb.Function):
         heap_file: gdb.Value,
         str_repr_len: gdb.Value,
         progress_file: gdb.Value,
-    ) -> str:
+    ) -> int:
         dumper_code_b64_str = dumper_code_b64.string()
         heap_file_str = heap_file.string()
 
@@ -133,7 +134,16 @@ class DumpPythonHeap(gdb.Function):
         )
         with closing(globals_dict) as globals_dict:
             self._run_dumper_code(dumper_code_b64_str, globals_dict)
-            return globals_dict.get_str("result") or "Error getting result"
+
+            result = globals_dict.get_str("result")
+            print(result)
+
+            result_error = globals_dict.get_str("result_error")
+            if result_error:
+                print(result_error)
+                return 1
+            else:
+                return 0
 
     def _run_dumper_code(
         self, dumper_code_b64: str, globals_dict: _GlobalsDict
