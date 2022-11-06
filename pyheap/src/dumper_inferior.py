@@ -223,12 +223,23 @@ def _write_threads_and_return_locals(
             writer.write_unsigned_int(0)
             continue
 
-        # Skip the dumper frames, which may be on top of normal frames.
         stack_trace: List[Tuple[FrameType, int]] = [
-            el
-            for el in traceback.walk_stack(current_thread_frame)
-            if el[0].f_code.co_filename != __file__
+            el for el in traceback.walk_stack(current_thread_frame)
         ]
+
+        # Skip the PyHeap frames, which may be on top of normal frames.
+        pyheap_starts: Optional[int] = None
+        for i, (frame, _) in enumerate(stack_trace):
+            if (
+                frame.f_locals.get("__file__") == "<pyheap>"
+                and frame.f_code.co_filename == "<string>"
+                and frame.f_code.co_name == "<module>"
+            ):
+                pyheap_starts = i
+                break
+        if pyheap_starts is not None:
+            stack_trace = stack_trace[pyheap_starts + 1 :]
+
         # Stack trace length
         writer.write_unsigned_int(len(stack_trace))
         for frame, lineno in stack_trace:

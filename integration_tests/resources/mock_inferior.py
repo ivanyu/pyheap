@@ -84,9 +84,8 @@ def function3(a: int) -> None:
     dumper_path = str(
         Path(__file__).parent.parent.parent / "pyheap" / "src" / "dumper_inferior.py"
     )
-    compiled_file_name = "<pyheap>"
     with open(dumper_path, "r") as f:
-        code = compile(f.read(), compiled_file_name, mode="exec")
+        code = compile(f.read(), "<string>", mode="exec")
 
     progress_file_path = os.path.join(
         tempfile.mkdtemp(prefix="pyheap-"), "progress.json"
@@ -96,7 +95,7 @@ def function3(a: int) -> None:
     eval(
         code,
         {
-            "__file__": compiled_file_name,
+            "__file__": "<pyheap>",
             "heap_file": heap_file,
             "str_repr_len": 1000 if dump_str_repr else -1,
             "progress_file": progress_file_path,
