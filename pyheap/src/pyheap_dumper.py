@@ -86,6 +86,8 @@ def dump_heap(args: argparse.Namespace) -> None:
         except OSError as e:
             print(f"Error deleting progress file '{progress_file_path}': {e}")
 
+    if p.returncode != 0:
+        print("Dumping finished with error")
     exit(p.returncode)
 
 
