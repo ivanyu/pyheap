@@ -19,10 +19,40 @@ import tempfile
 import time
 from pathlib import Path
 from threading import Thread, Event
-from typing import Any
+from typing import Any, NoReturn
 
 heap_file = sys.argv[1]
 dump_str_repr = sys.argv[2].lower() == "true"
+
+
+class DisabledOperations:
+    def __new__(cls) -> "DisabledOperations":
+        prohibited = {
+            "__dir__",
+            "__str__",
+            "__repr__",
+            "__doc__",
+            "__eq__",
+            "__ge__",
+            "__gt__",
+            "__getattribute__",
+            "__hash__",
+            "__le__",
+            "__lt__",
+            "__ne__",
+            "__setattr__",
+            "__sizeof__",
+        }
+        for attr in prohibited:
+
+            def error(*args: Any, **kwargs: Any) -> NoReturn:
+                raise ValueError(f"prohibited to call {attr}")
+
+            setattr(cls, attr, error)
+        return super().__new__(cls)
+
+
+disabled_operations = DisabledOperations()
 
 
 class MyThread(Thread):
