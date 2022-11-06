@@ -71,6 +71,8 @@ def test_dumper(tmp_path: Path, dump_str_repr: bool) -> None:
 def _check_threads_and_objects(
     heap: Heap, mock_inferior_file: str, dump_str_repr: bool
 ) -> None:
+    _check_no_pyheap_frames(heap)
+
     under_debugger = sys.gettrace() is not None
     python_3_11 = (sys.version_info.major, sys.version_info.minor) == (3, 11)
     assert len(heap.threads) == (2 if not under_debugger or python_3_11 else 5)
@@ -86,14 +88,13 @@ def _check_threads_and_objects(
 
     frame = main_thread.stack_trace[0]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 96
+    assert frame.lineno == 95
     assert frame.co_name == "function3"
     assert set(frame.locals.keys()) == {
         "a",
         "f",
         "code",
         "dumper_path",
-        "compiled_file_name",
         "progress_file_path",
     }
 
@@ -119,7 +120,7 @@ def _check_threads_and_objects(
 
     frame = main_thread.stack_trace[1]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 108
+    assert frame.lineno == 107
     assert frame.co_name == "function2"
     assert set(frame.locals.keys()) == {"a", "b"}
     obj = heap.objects[frame.locals["a"]]
@@ -138,7 +139,7 @@ def _check_threads_and_objects(
 
     frame = main_thread.stack_trace[2]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 112
+    assert frame.lineno == 111
     assert frame.co_name == "function1"
     assert set(frame.locals.keys()) == {"a", "b", "c"}
 
@@ -165,7 +166,7 @@ def _check_threads_and_objects(
 
     frame = main_thread.stack_trace[3]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 115
+    assert frame.lineno == 114
     assert frame.co_name == "<module>"
     expected_locals = {
         "__name__",
@@ -323,6 +324,12 @@ def _check_threads_and_objects(
     }
     for t in expected_types:
         assert t in heap.types.values()
+
+
+def _check_no_pyheap_frames(heap: Heap) -> None:
+    assert not [
+        f for t in heap.threads for f in t.stack_trace if f.co_filename == "<string>"
+    ]
 
 
 def _find_type_by_name(heap: Heap, type_name: str) -> int:
