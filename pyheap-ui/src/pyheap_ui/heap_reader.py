@@ -49,6 +49,7 @@ from pyheap_ui.heap_types import (
     HeapFlags,
     ObjectDict,
     AttributeName,
+    HeapHeader,
 )
 
 T = TypeVar("T")
@@ -116,7 +117,9 @@ class HeapReader:
         return heap
 
     def _read(self, type_: Type[T]) -> T:
-        if type_ == HeapObject:
+        if type_ == HeapHeader:
+            return self._read_heap_header()
+        elif type_ == HeapObject:
             return self._read_heap_object()
         elif type_ == HeapFlags:
             return self._read_heap_flags()
@@ -148,6 +151,12 @@ class HeapReader:
                 raise ValueError(f"Unsupported type {type_}")
         else:
             raise ValueError(f"Unsupported type {type_}")
+
+    def _read_heap_header(self) -> HeapHeader:
+        header = self._read_dataclass(HeapHeader)
+        if header.version != 1:
+            raise ValueError(f"Unsupported heap format version: {header.version}")
+        return header
 
     @staticmethod
     @cache_by_id
