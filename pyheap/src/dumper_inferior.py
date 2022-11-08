@@ -83,6 +83,19 @@ class _HeapWriter:
 
         self.write_unsigned_long(self._flags)
 
+        self._write_well_known_types()
+
+    def _write_well_known_types(self) -> None:
+        well_known_types = {
+            "list": id(list),
+            "dict": id(dict),
+            "set": id(set),
+        }
+        self.write_unsigned_int(len(well_known_types))
+        for type_name, type_addr in well_known_types.items():
+            self.write_long_string(type_name)
+            self.write_unsigned_long(type_addr)
+
     def write_footer(self) -> None:
         self._write_magic()
 

@@ -43,6 +43,7 @@ class HeapHeader:
     version: UnsignedInt
     created_at: str
     flags: HeapFlags
+    well_known_types: Dict[str, Address]
 
 
 @dataclass(frozen=True)

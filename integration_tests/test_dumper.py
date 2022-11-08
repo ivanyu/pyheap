@@ -61,8 +61,8 @@ def test_dumper(tmp_path: Path, dump_str_repr: bool) -> None:
                 # Check that we have read everything.
                 assert reader._offset == mm.size()
 
-                _check_threads_and_objects(heap, mock_inferior_file, dump_str_repr)
                 _check_header(heap, dump_str_repr)
+                _check_threads_and_objects(heap, mock_inferior_file, dump_str_repr)
                 _check_common_types(heap, reader)
     finally:
         os.remove(heap_file)
@@ -345,6 +345,12 @@ def _check_header(heap: Heap, dump_str_repr: bool) -> None:
     x = dateutil.parser.isoparse(heap.header.created_at)
     assert (datetime.now(timezone.utc) - x).total_seconds() < 5 * 60
     assert heap.header.flags.with_str_repr is dump_str_repr
+
+    for type_name in ["dict", "set", "list", "tuple"]:
+        dict_type_addr = heap.header.well_known_types[type_name]
+        assert heap.types[dict_type_addr] == type_name
+        if dump_str_repr:
+            assert heap.objects[dict_type_addr].str_repr == f"<class '{type_name}'>"
 
 
 def _check_common_types(heap: Heap, reader: HeapReader) -> None:
