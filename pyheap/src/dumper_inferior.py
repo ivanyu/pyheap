@@ -22,7 +22,18 @@ import threading
 import time
 import traceback
 from types import FrameType
-from typing import List, Any, Dict, Tuple, BinaryIO, Set, Type, Optional
+from typing import (
+    List,
+    Any,
+    Dict,
+    Tuple,
+    BinaryIO,
+    Set,
+    Type,
+    Optional,
+    cast,
+    Collection,
+)
 import inspect
 from functools import lru_cache
 from datetime import datetime, timezone
@@ -88,6 +99,7 @@ class _HeapWriter:
     def _write_well_known_types(self) -> None:
         well_known_types = {
             "list": id(list),
+            "tuple": id(tuple),
             "dict": id(dict),
             "set": id(set),
         }
@@ -503,10 +515,34 @@ def _write_objects_and_return_types(
             messages.append(f"Error getting size of {type_}: {e}")
         writer.write_unsigned_int(obj_size)
 
-        # Referents
-        writer.write_unsigned_int(len(referents))
-        for r in referents:
-            writer.write_unsigned_long(id(r))
+        # Content of some well-known container types and referents
+        referent_ids = {id(r) for r in referents}
+        if type_ == dict:
+            obj_dict = cast(dict, obj)
+            writer.write_unsigned_int(len(obj_dict))
+            for k, v in obj_dict.items():
+                # Values should be in referents already.
+                # TODO consider some optimization. Sometimes keys are in referents as well.
+                to_visit.append(k)
+
+                if id(k) in referent_ids:
+                    referent_ids.remove(id(k))
+                if id(v) in referent_ids:
+                    referent_ids.remove(id(v))
+                writer.write_unsigned_long(id(k))
+                writer.write_unsigned_long(id(v))
+        elif type_ in {list, set, tuple}:
+            obj_coll = cast(Collection, obj)
+            writer.write_unsigned_int(len(obj_coll))
+            for el in obj_coll:
+                if id(el) in referent_ids:
+                    referent_ids.remove(id(el))
+                writer.write_unsigned_long(id(el))
+
+        # Write remaining referents
+        writer.write_unsigned_int(len(referent_ids))
+        for r_id in referent_ids:
+            writer.write_unsigned_long(r_id)
 
         # Attributes -- write them only for non-"common" types.
         if type_ not in common_types:

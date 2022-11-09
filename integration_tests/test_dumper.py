@@ -72,6 +72,7 @@ def _check_threads_and_objects(
     heap: Heap, mock_inferior_file: str, dump_str_repr: bool
 ) -> None:
     _check_no_pyheap_frames(heap)
+    _check_objects_with_contents(heap, dump_str_repr)
 
     under_debugger = sys.gettrace() is not None
     python_3_11 = (sys.version_info.major, sys.version_info.minor) == (3, 11)
@@ -88,7 +89,7 @@ def _check_threads_and_objects(
 
     frame = main_thread.stack_trace[0]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 95
+    assert frame.lineno == 97
     assert frame.co_name == "function3"
     assert set(frame.locals.keys()) == {
         "a",
@@ -120,7 +121,7 @@ def _check_threads_and_objects(
 
     frame = main_thread.stack_trace[1]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 107
+    assert frame.lineno == 109
     assert frame.co_name == "function2"
     assert set(frame.locals.keys()) == {"a", "b"}
     obj = heap.objects[frame.locals["a"]]
@@ -139,7 +140,7 @@ def _check_threads_and_objects(
 
     frame = main_thread.stack_trace[2]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 111
+    assert frame.lineno == 113
     assert frame.co_name == "function1"
     assert set(frame.locals.keys()) == {"a", "b", "c"}
 
@@ -166,7 +167,7 @@ def _check_threads_and_objects(
 
     frame = main_thread.stack_trace[3]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 114
+    assert frame.lineno == 116
     assert frame.co_name == "<module>"
     expected_locals = {
         "__name__",
@@ -194,7 +195,9 @@ def _check_threads_and_objects(
         "DisabledOperations",
         "disabled_operations",
         "some_string",
+        "some_dict",
         "some_list",
+        "some_set",
         "some_tuple",
         "function3",
         "function2",
@@ -220,7 +223,6 @@ def _check_threads_and_objects(
     assert obj.str_repr == ("<ERROR on __str__>" if dump_str_repr else None)
 
     obj = heap.objects[frame.locals["some_list"]]
-    # assert obj.address == frame.locals["some_list"]
     assert obj.type == _find_type_by_name(heap, "list")
     assert obj.size in {120, 88, 80}  # depends on Python version
     assert obj.str_repr == ("[1, 2, 3]" if dump_str_repr else None)
@@ -230,12 +232,11 @@ def _check_threads_and_objects(
         assert {heap.objects[r].str_repr for r in obj.referents} == {None}
 
     obj = heap.objects[frame.locals["some_tuple"]]
-    # assert obj.address == frame.locals["some_tuple"]
     assert obj.type == _find_type_by_name(heap, "tuple")
-    assert obj.size == 64
-    assert obj.str_repr == ("('a', 'b', 'c')" if dump_str_repr else None)
+    assert obj.size == 56
+    assert obj.str_repr == ("(3.14, 2.718)" if dump_str_repr else None)
     if dump_str_repr:
-        assert {heap.objects[r].str_repr for r in obj.referents} == {"a", "b", "c"}
+        assert {heap.objects[r].str_repr for r in obj.referents} == {"3.14", "2.718"}
     else:
         assert {heap.objects[r].str_repr for r in obj.referents} == {None}
 
@@ -330,6 +331,71 @@ def _check_no_pyheap_frames(heap: Heap) -> None:
     assert not [
         f for t in heap.threads for f in t.stack_trace if f.co_filename == "<string>"
     ]
+
+
+def _check_objects_with_contents(heap: Heap, dump_str_repr: bool) -> None:
+    main_thread = next(t for t in heap.threads if t.name == "MainThread")
+    frame = main_thread.stack_trace[-1]
+
+    assert heap.objects[frame.locals["some_string"]].content is None
+
+    # Dict
+    some_dict = heap.objects[frame.locals["some_dict"]]
+    assert some_dict.type == heap.header.well_known_types["dict"]
+    assert isinstance(some_dict.content, dict)
+    assert len(some_dict.content) == 1
+    assert len(some_dict.referents) == 2
+    k_addr, v_addr = list(some_dict.content.items())[0]
+    k = heap.objects[k_addr]
+    v = heap.objects[v_addr]
+    assert k.type == _find_type_by_name(heap, "str")
+    assert v.type == _find_type_by_name(heap, "int")
+    if dump_str_repr:
+        assert {k.str_repr: v.str_repr} == {"a": "1"}
+
+    # List
+    some_list = heap.objects[frame.locals["some_list"]]
+    assert some_list.type == heap.header.well_known_types["list"]
+    assert isinstance(some_list.content, list)
+    assert len(some_list.content) == 3
+    assert len(some_list.referents) == 3
+    for el_addr in some_list.content:
+        assert heap.objects[el_addr].type == _find_type_by_name(heap, "int")
+    if dump_str_repr:
+        assert [heap.objects[el_addr].str_repr for el_addr in some_list.content] == [
+            "1",
+            "2",
+            "3",
+        ]
+
+    # Set
+    some_set = heap.objects[frame.locals["some_set"]]
+    assert some_set.type == heap.header.well_known_types["set"]
+    assert isinstance(some_set.content, set)
+    assert len(some_set.content) == 4
+    assert len(some_set.referents) == 4
+    for el_addr in some_set.content:
+        assert heap.objects[el_addr].type == _find_type_by_name(heap, "str")
+    if dump_str_repr:
+        assert {heap.objects[el_addr].str_repr for el_addr in some_set.content} == {
+            "a",
+            "b",
+            "c",
+            "d",
+        }
+
+    # Tuple
+    some_tuple = heap.objects[frame.locals["some_tuple"]]
+    assert some_tuple.type == heap.header.well_known_types["tuple"]
+    assert isinstance(some_tuple.content, tuple)
+    assert len(some_tuple.content) == 2
+    assert len(some_tuple.referents) == 2
+    for el_addr in some_tuple.content:
+        assert heap.objects[el_addr].type == _find_type_by_name(heap, "float")
+    if dump_str_repr:
+        assert tuple(
+            [heap.objects[el_addr].str_repr for el_addr in some_tuple.content]
+        ) == ("3.14", "2.718")
 
 
 def _find_type_by_name(heap: Heap, type_name: str) -> int:

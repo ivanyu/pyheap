@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Dict, List, Set, Optional, Callable, Any, Mapping
+from typing import Dict, List, Set, Optional, Callable, Any, Mapping, Union, Tuple
 from typing_extensions import Annotated, NewType
 
 
@@ -70,6 +70,9 @@ class HeapThread:
 
 
 AttributeName = NewType("AttributeName", str)
+ObjectContent = Union[
+    Dict[Address, Address], List[Address], Set[Address], Tuple[Address], None
+]
 
 
 @dataclass
@@ -77,6 +80,7 @@ class HeapObject:
     type: Address
     size: UnsignedInt
     referents: Set[Address]
+    content: ObjectContent = field(default=None)
 
     def __post_init__(self) -> None:
         self._attributes_offset: Optional[int] = None

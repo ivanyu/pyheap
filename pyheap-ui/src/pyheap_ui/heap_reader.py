@@ -38,6 +38,8 @@ from typing import (
     Set,
     Optional,
     List,
+    Tuple,
+    cast,
 )
 import struct
 from pyheap_ui.heap_types import (
@@ -50,6 +52,7 @@ from pyheap_ui.heap_types import (
     ObjectDict,
     AttributeName,
     HeapHeader,
+    ObjectContent,
 )
 
 T = TypeVar("T")
@@ -100,6 +103,7 @@ class HeapReader:
         self._flags: Optional[HeapFlags] = None
         self._frequent_attrs: Optional[List[str]] = None
         self._common_types: Optional[Dict[Address, _CommonType]] = None
+        self._header: Optional[HeapHeader] = None
 
     def read(self) -> Heap:
         # Header
@@ -133,6 +137,8 @@ class HeapReader:
             return self._read_generic_list(type_)
         elif self._get_origin(type_) is set:
             return self._read_generic_set(type_)
+        elif self._get_origin(type_) is tuple:
+            return self._read_generic_tuple(type_)
         elif self._get_origin(type_) is dict:
             return self._read_generic_dict(type_)
         elif type_ == str:
@@ -156,6 +162,7 @@ class HeapReader:
         header = self._read_dataclass(HeapHeader)
         if header.version != 1:
             raise ValueError(f"Unsupported heap format version: {header.version}")
+        self._header = header
         return header
 
     @staticmethod
@@ -179,10 +186,33 @@ class HeapReader:
         return typing_extensions.get_args(type_)
 
     def _read_heap_object(self) -> HeapObject:
+        type_ = self._read(Address)
+        size_ = self._read(UnsignedInt)
+
+        content: ObjectContent = None
+        extra_referents: Set[Address] = set()
+        if type_ == self._header.well_known_types["dict"]:
+            content = self._read_generic_dict(Dict[Address, Address])
+            extra_referents.update(content.keys())
+            extra_referents.update(content.values())
+        if type_ == self._header.well_known_types["list"]:
+            content = self._read_generic_list(List[Address])
+            extra_referents.update(content)
+        if type_ == self._header.well_known_types["set"]:
+            content = self._read_generic_set(Set[Address])
+            extra_referents.update(content)
+        if type_ == self._header.well_known_types["tuple"]:
+            content = self._read_generic_tuple(Tuple[Address])
+            extra_referents.update(content)
+
+        referents = self._read(Set[Address])
+        referents.update(extra_referents)
+
         r = HeapObject(
-            type=self._read(Address),
-            size=self._read(UnsignedInt),
-            referents=self._read(Set[Address]),
+            type=type_,
+            size=size_,
+            referents=referents,
+            content=content,
         )
 
         # Attributes are present only for non-"common" types.
@@ -267,6 +297,12 @@ class HeapReader:
         for _ in range(set_size):
             result.add(self._read(args[0]))
         return result
+
+    def _read_generic_tuple(self, type_: Type[T]) -> T:
+        args = self._get_args(type_)
+        if len(args) != 1:
+            raise ValueError(f"Unsupported type {type_}")
+        return tuple(self._read_generic_list(List[args[0]]))
 
     def _read_generic_dict(self, type_: Type[T]) -> T:
         args = self._get_args(type_)

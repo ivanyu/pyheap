@@ -76,8 +76,10 @@ my_thread.reached.wait(2)
 
 
 some_string = "hello world"
+some_dict = {"a": 1}
 some_list = [1, 2, 3]
-some_tuple = ("a", "b", "c")
+some_set = {"a", "b", "c", "d"}
+some_tuple = (3.14, 2.718)
 
 
 def function3(a: int) -> None:
