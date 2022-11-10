@@ -35,6 +35,9 @@
     [<i class="bi bi-lock"></i>
     {{ retained_heap.get_for_object(address) }}]
 </span>
+
+<code>{{ types[objects[address].type] }}</code>
+
 {% if objects[address].str_repr is not none %}
 <span class="inline-object-str text-muted">{{ objects[address].str_repr }}</span>
 {% endif %}
@@ -42,18 +45,20 @@
 
 {% macro render_element(address) -%}
 {% if address in objects %}
-    {% if objects[address].str_repr is not none %}
-    <span class="inline-object-str text-muted">{{ objects[address].str_repr }}</span>
-    {% else %}
-    <span class="inline-object-str text-muted">(no string repr)</span>
-    {% endif %}
-
     {{ render_object_link(address) }}
 
     <span title="Retained heap, B" class="text-muted">
         [<i class="bi bi-lock"></i>
         {{ retained_heap.get_for_object(address) }}]
     </span>
+
+    <code>{{ types[objects[address].type] }}</code>
+
+    {% if objects[address].str_repr is not none %}
+    <span class="inline-object-str text-muted">{{ objects[address].str_repr }}</span>
+    {% else %}
+    <span class="inline-object-str text-muted">(no string repr)</span>
+    {% endif %}
 {% else %}
     (unknown)
 {% endif %}
@@ -70,7 +75,7 @@
         <div class="accordion-item">
             <h2 class="accordion-header" id="panelAttributesMagic">
                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                        data-bs-target="#panelAttributesMagic-collapse" aria-expanded="true"
+                        data-bs-target="#panelAttributesMagic-collapse" aria-expanded="false"
                         aria-controls="panelAttributesMagic-collapse">
                     Magic attributes
                 </button>
@@ -107,13 +112,13 @@
         </div>
         <div class="accordion-item">
             <h2 class="accordion-header" id="panelAttributesPublic">
-                <button class="accordion-button" type="button" data-bs-toggle="collapse"
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                         data-bs-target="#panelAttributesPublic-collapse" aria-expanded="false"
                         aria-controls="panelAttributesPublic-collapse">
                     Public attributes
                 </button>
             </h2>
-            <div id="panelAttributesPublic-collapse" class="accordion-collapse collapse show"
+            <div id="panelAttributesPublic-collapse" class="accordion-collapse collapse"
                  aria-labelledby="panelAttributesPublic">
                 <div class="accordion-body">
                     {% for attr, address in obj.attributes.items() %}
@@ -137,7 +142,7 @@
             <div id="panelElements-collapse" class="accordion-collapse collapse show"
                  aria-labelledby="panelElements">
                 <div class="accordion-body text-truncate overflow-scroll">
-                    <ul>
+                    <ul class="list-unstyled">
                         {% if well_known_type == "dict" %}
                             {% for key, value in obj.content.items() %}
                                 <li>{{ render_element(key) }}&nbsp;&nbsp;:&nbsp;&nbsp;{{ render_element(value) }}</li>
@@ -153,18 +158,45 @@
             </div>
         </div>
         {% endif %}
-    </div>
 
-    <div id="referent-tree-panel" class="text-truncate pt-3" style="overflow: scroll;">
-        <strong>Referents:</strong><br/>
-        <div id="referent-tree-spinner" class="spinner-border m-5" role="status">
-            <span class="visually-hidden">Loading...</span>
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="panelReferents">
+                <button class="accordion-button" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#panelReferents-collapse" aria-expanded="false"
+                        aria-controls="panelReferents-collapse">
+                    Referents
+                </button>
+            </h2>
+            <div id="panelReferents-collapse" class="accordion-collapse collapse show"
+                 aria-labelledby="panelReferents">
+                <div class="accordion-body">
+                    <div id="referent-tree-panel" class="text-truncate pt-3" style="overflow: scroll;">
+                        <div id="referent-tree-spinner" class="spinner-border m-5" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
-    <div id="inbound-references-tree-panel" class="text-truncate pt-3" style="overflow: scroll;">
-        <strong>Inbound references:</strong><br/>
-        <div id="inbound-references-tree-spinner" class="spinner-border m-5" role="status">
-            <span class="visually-hidden">Loading...</span>
+
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="panelInboundReferences">
+                <button class="accordion-button" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#panelInboundReferences-collapse" aria-expanded="false"
+                        aria-controls="panelInboundReferences-collapse">
+                    Inbound references
+                </button>
+            </h2>
+            <div id="panelInboundReferences-collapse" class="accordion-collapse collapse show"
+                 aria-labelledby="panelInboundReferences">
+                <div class="accordion-body">
+                    <div id="inbound-references-tree-panel" class="text-truncate pt-3" style="overflow: scroll;">
+                        <div id="inbound-references-tree-spinner" class="spinner-border m-5" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>

@@ -115,6 +115,7 @@ def objects(address: int) -> str:
         obj=obj,
         type=heap.types[obj.type],
         objects=heap.objects,
+        types=heap.types,
         retained_heap=retained_heap,
         well_known_type=well_known_type,
     )
