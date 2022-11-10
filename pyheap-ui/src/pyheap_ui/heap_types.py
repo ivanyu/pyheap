@@ -15,7 +15,7 @@
 #
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Dict, List, Set, Optional, Callable, Any, Mapping, Union, Tuple
+from typing import Dict, List, Set, Optional, Callable, Any, Mapping, Union, Tuple, cast
 from typing_extensions import Annotated, NewType
 
 
@@ -71,12 +71,13 @@ class HeapThread:
 
 AttributeName = NewType("AttributeName", str)
 ObjectContent = Union[
-    Dict[Address, Address], List[Address], Set[Address], Tuple[Address], None
+    Dict[Address, Address], List[Address], Set[Address], Tuple[Address, ...], None
 ]
 
 
 @dataclass
 class HeapObject:
+    address: Address
     type: Address
     size: UnsignedInt
     referents: Set[Address]
@@ -87,8 +88,17 @@ class HeapObject:
         self._read_attributes_func: Optional[
             Callable[[int], Dict[AttributeName, Address]]
         ] = None
-        self._str_repr_offset: Optional[int] = None
-        self._read_str_repr_func: Optional[Callable[[int], str]] = None
+
+        self._str_repr_func: Optional[Callable[["HeapObject"], Optional[str]]] = None
+
+    def __hash__(self) -> int:
+        return hash(self.address)
+
+    def __eq__(self, o: object) -> bool:
+        if isinstance(o, HeapObject):
+            return cast(HeapObject, o).address == self.address
+        else:
+            return False
 
     def set_read_attributes_func(
         self, offset: int, func: Callable[[int], Dict[AttributeName, Address]]
@@ -96,28 +106,21 @@ class HeapObject:
         self._attributes_offset = offset
         self._read_attributes_func = func
 
-    def set_read_str_repr_func(self, offset: int, func: Callable[[int], str]) -> None:
-        self._str_repr_offset = offset
-        self._read_str_repr_func = func
-
     @property
     def attributes(self) -> Dict[AttributeName, Address]:
         return self._read_attributes_func(self._attributes_offset)
 
     @property
     def str_repr(self) -> Optional[str]:
-        if self._read_str_repr_func:
-            return self._read_str_repr_func(self._str_repr_offset)
-        else:
-            return None
+        return self._str_repr_func(self)
 
     def __getstate__(self) -> Dict[str, Any]:
         # Exclude pickling the lazy load functions.
         state = self.__dict__.copy()
         if "_read_attributes_func" in state:
             del state["_read_attributes_func"]
-        if "_read_str_repr_func" in state:
-            del state["_read_str_repr_func"]
+        if "_str_repr_func" in state:
+            del state["_str_repr_func"]
         return state
 
 

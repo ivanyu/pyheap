@@ -517,6 +517,8 @@ def _write_objects_and_return_types(
 
         # Content of some well-known container types and referents
         referent_ids = {id(r) for r in referents}
+
+        is_well_known_container_type = type_ in {dict, list, set, tuple}
         if type_ == dict:
             obj_dict = cast(dict, obj)
             writer.write_unsigned_int(len(obj_dict))
@@ -563,7 +565,7 @@ def _write_objects_and_return_types(
                 writer.write_attribute(attr, attr_value, frequent_attributes)
 
         # String representation
-        if str_repr_len >= 0:
+        if str_repr_len >= 0 and not is_well_known_container_type:
             try:
                 str_repr = str(obj)[:str_repr_len]
             except:

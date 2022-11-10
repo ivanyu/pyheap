@@ -27,7 +27,7 @@ _HEADER = HeapHeader(0, "", HeapFlags(True), well_known_types={})
 
 def test_minimal() -> None:
     objects = {
-        1: HeapObject(type=0, size=20, referents=set()),
+        1: HeapObject(address=1, type=0, size=20, referents=set()),
     }
     heap = Heap(_HEADER, threads=[], objects=objects, types={})
     inbound_references = InboundReferences(objects)
@@ -39,7 +39,7 @@ def test_minimal() -> None:
 
 def test_self_reference() -> None:
     objects = {
-        1: HeapObject(type=0, size=20, referents={1}),
+        1: HeapObject(address=1, type=0, size=20, referents={1}),
     }
     heap = Heap(_HEADER, threads=[], objects=objects, types={})
     inbound_references = InboundReferences(objects)
@@ -54,9 +54,9 @@ def test_circular_reference() -> None:
     # ^         |
     # +---------+
     objects = {
-        1: HeapObject(type=0, size=10, referents={2}),
-        2: HeapObject(type=0, size=20, referents={3}),
-        3: HeapObject(type=0, size=30, referents={1}),
+        1: HeapObject(address=1, type=0, size=10, referents={2}),
+        2: HeapObject(address=2, type=0, size=20, referents={3}),
+        3: HeapObject(address=3, type=0, size=30, referents={1}),
     }
     heap = Heap(_HEADER, threads=[], objects=objects, types={})
     inbound_references = InboundReferences(objects)
@@ -73,10 +73,10 @@ def test_simple_tree() -> None:
     # 1 -> 3
     #  \-> 4
     objects = {
-        1: HeapObject(type=0, size=10, referents={2, 3, 4}),
-        2: HeapObject(type=0, size=20, referents=set()),
-        3: HeapObject(type=0, size=30, referents=set()),
-        4: HeapObject(type=0, size=40, referents=set()),
+        1: HeapObject(address=1, type=0, size=10, referents={2, 3, 4}),
+        2: HeapObject(address=2, type=0, size=20, referents=set()),
+        3: HeapObject(address=3, type=0, size=30, referents=set()),
+        4: HeapObject(address=4, type=0, size=40, referents=set()),
     }
     heap = Heap(_HEADER, threads=[], objects=objects, types={})
     inbound_references = InboundReferences(objects)
@@ -100,17 +100,17 @@ def test_multi_level_tree() -> None:
     #        \---> 10
     #         \--> 11
     objects = {
-        1: HeapObject(type=0, size=10, referents={2, 3, 4}),
-        2: HeapObject(type=0, size=20, referents={5, 6, 7}),
-        3: HeapObject(type=0, size=30, referents={8}),
-        4: HeapObject(type=0, size=40, referents={9, 10, 11}),
-        5: HeapObject(type=0, size=50, referents=set()),
-        6: HeapObject(type=0, size=60, referents=set()),
-        7: HeapObject(type=0, size=70, referents=set()),
-        8: HeapObject(type=0, size=80, referents=set()),
-        9: HeapObject(type=0, size=90, referents=set()),
-        10: HeapObject(type=0, size=100, referents=set()),
-        11: HeapObject(type=0, size=110, referents=set()),
+        1: HeapObject(address=1, type=0, size=10, referents={2, 3, 4}),
+        2: HeapObject(address=2, type=0, size=20, referents={5, 6, 7}),
+        3: HeapObject(address=3, type=0, size=30, referents={8}),
+        4: HeapObject(address=4, type=0, size=40, referents={9, 10, 11}),
+        5: HeapObject(address=5, type=0, size=50, referents=set()),
+        6: HeapObject(address=6, type=0, size=60, referents=set()),
+        7: HeapObject(address=7, type=0, size=70, referents=set()),
+        8: HeapObject(address=8, type=0, size=80, referents=set()),
+        9: HeapObject(address=9, type=0, size=90, referents=set()),
+        10: HeapObject(address=10, type=0, size=100, referents=set()),
+        11: HeapObject(address=11, type=0, size=110, referents=set()),
     }
     heap = Heap(_HEADER, threads=[], objects=objects, types={})
     inbound_references = InboundReferences(objects)
@@ -137,13 +137,13 @@ def test_long_branch() -> None:
     # 1 -> 2 -> 3 -> 4 -> 5 -> 6
     #  \-> 7
     objects = {
-        1: HeapObject(type=0, size=10, referents={2, 7}),
-        2: HeapObject(type=0, size=20, referents={3}),
-        3: HeapObject(type=0, size=30, referents={4}),
-        4: HeapObject(type=0, size=40, referents={5}),
-        5: HeapObject(type=0, size=50, referents={6}),
-        6: HeapObject(type=0, size=60, referents=set()),
-        7: HeapObject(type=0, size=70, referents=set()),
+        1: HeapObject(address=1, type=0, size=10, referents={2, 7}),
+        2: HeapObject(address=2, type=0, size=20, referents={3}),
+        3: HeapObject(address=3, type=0, size=30, referents={4}),
+        4: HeapObject(address=4, type=0, size=40, referents={5}),
+        5: HeapObject(address=5, type=0, size=50, referents={6}),
+        6: HeapObject(address=6, type=0, size=60, referents=set()),
+        7: HeapObject(address=7, type=0, size=70, referents=set()),
     }
     heap = Heap(_HEADER, threads=[], objects=objects, types={})
     inbound_references = InboundReferences(objects)
@@ -164,9 +164,9 @@ def test_transitive() -> None:
     # 1    ^
     #  \-> 3
     objects = {
-        1: HeapObject(type=0, size=10, referents={2, 3}),
-        2: HeapObject(type=0, size=20, referents=set()),
-        3: HeapObject(type=0, size=30, referents={2}),
+        1: HeapObject(address=1, type=0, size=10, referents={2, 3}),
+        2: HeapObject(address=2, type=0, size=20, referents=set()),
+        3: HeapObject(address=3, type=0, size=30, referents={2}),
     }
     heap = Heap(_HEADER, threads=[], objects=objects, types={})
     inbound_references = InboundReferences(objects)
@@ -183,11 +183,11 @@ def test_side_reference() -> None:
     #                ^
     #                5
     objects = {
-        1: HeapObject(type=0, size=10, referents={2}),
-        2: HeapObject(type=0, size=20, referents={3}),
-        3: HeapObject(type=0, size=30, referents={4}),
-        4: HeapObject(type=0, size=40, referents=set()),
-        5: HeapObject(type=0, size=50, referents={4}),
+        1: HeapObject(address=1, type=0, size=10, referents={2}),
+        2: HeapObject(address=2, type=0, size=20, referents={3}),
+        3: HeapObject(address=3, type=0, size=30, referents={4}),
+        4: HeapObject(address=4, type=0, size=40, referents=set()),
+        5: HeapObject(address=5, type=0, size=50, referents={4}),
     }
     heap = Heap(_HEADER, threads=[], objects=objects, types={})
     inbound_references = InboundReferences(objects)
@@ -208,10 +208,10 @@ def test_cross() -> None:
     # v/ \v
     # 3   4
     objects = {
-        1: HeapObject(type=0, size=10, referents={3, 4}),
-        2: HeapObject(type=0, size=20, referents={3, 4}),
-        3: HeapObject(type=0, size=30, referents=set()),
-        4: HeapObject(type=0, size=40, referents=set()),
+        1: HeapObject(address=1, type=0, size=10, referents={3, 4}),
+        2: HeapObject(address=2, type=0, size=20, referents={3, 4}),
+        3: HeapObject(address=3, type=0, size=30, referents=set()),
+        4: HeapObject(address=4, type=0, size=40, referents=set()),
     }
     heap = Heap(_HEADER, threads=[], objects=objects, types={})
     inbound_references = InboundReferences(objects)
@@ -232,13 +232,13 @@ def test_complex_1() -> None:
     #      ^         |
     #      +---------+
     objects = {
-        1: HeapObject(type=0, size=10, referents={3}),
-        2: HeapObject(type=0, size=20, referents={1, 6}),
-        3: HeapObject(type=0, size=30, referents={2, 4}),
-        4: HeapObject(type=0, size=40, referents={5}),
-        5: HeapObject(type=0, size=50, referents={3}),
-        6: HeapObject(type=0, size=60, referents={7}),
-        7: HeapObject(type=0, size=70, referents=set()),
+        1: HeapObject(address=1, type=0, size=10, referents={3}),
+        2: HeapObject(address=2, type=0, size=20, referents={1, 6}),
+        3: HeapObject(address=3, type=0, size=30, referents={2, 4}),
+        4: HeapObject(address=4, type=0, size=40, referents={5}),
+        5: HeapObject(address=5, type=0, size=50, referents={3}),
+        6: HeapObject(address=6, type=0, size=60, referents={7}),
+        7: HeapObject(address=7, type=0, size=70, referents=set()),
     }
     heap = Heap(_HEADER, threads=[], objects=objects, types={})
     inbound_references = InboundReferences(objects)
@@ -261,14 +261,14 @@ def test_complex_2() -> None:
     #         v
     #         8
     objects = {
-        1: HeapObject(type=0, size=10, referents={5, 6}),
-        2: HeapObject(type=0, size=20, referents={4, 7}),
-        3: HeapObject(type=0, size=30, referents={5}),
-        4: HeapObject(type=0, size=40, referents={2}),
-        5: HeapObject(type=0, size=50, referents={6}),
-        6: HeapObject(type=0, size=60, referents={7, 8}),
-        7: HeapObject(type=0, size=70, referents={5}),
-        8: HeapObject(type=0, size=80, referents=set()),
+        1: HeapObject(address=1, type=0, size=10, referents={5, 6}),
+        2: HeapObject(address=2, type=0, size=20, referents={4, 7}),
+        3: HeapObject(address=3, type=0, size=30, referents={5}),
+        4: HeapObject(address=4, type=0, size=40, referents={2}),
+        5: HeapObject(address=5, type=0, size=50, referents={6}),
+        6: HeapObject(address=6, type=0, size=60, referents={7, 8}),
+        7: HeapObject(address=7, type=0, size=70, referents={5}),
+        8: HeapObject(address=8, type=0, size=80, referents=set()),
     }
     heap = Heap(_HEADER, threads=[], objects=objects, types={})
     inbound_references = InboundReferences(objects)
@@ -294,13 +294,13 @@ def test_complex_3() -> None:
     # |            v
     # +-----> 3 -> 7
     objects = {
-        1: HeapObject(type=0, size=10, referents={2, 3}),
-        2: HeapObject(type=0, size=20, referents={4, 5, 6, 7}),
-        3: HeapObject(type=0, size=30, referents={7}),
-        4: HeapObject(type=0, size=40, referents=set()),
-        5: HeapObject(type=0, size=50, referents=set()),
-        6: HeapObject(type=0, size=60, referents=set()),
-        7: HeapObject(type=0, size=70, referents=set()),
+        1: HeapObject(address=1, type=0, size=10, referents={2, 3}),
+        2: HeapObject(address=2, type=0, size=20, referents={4, 5, 6, 7}),
+        3: HeapObject(address=3, type=0, size=30, referents={7}),
+        4: HeapObject(address=4, type=0, size=40, referents=set()),
+        5: HeapObject(address=5, type=0, size=50, referents=set()),
+        6: HeapObject(address=6, type=0, size=60, referents=set()),
+        7: HeapObject(address=7, type=0, size=70, referents=set()),
     }
     heap = Heap(_HEADER, threads=[], objects=objects, types={})
     inbound_references = InboundReferences(objects)
@@ -319,10 +319,10 @@ def test_complex_3() -> None:
 def test_forest_minimal() -> None:
     # 1  2  3  4
     objects = {
-        1: HeapObject(type=0, size=10, referents=set()),
-        2: HeapObject(type=0, size=20, referents=set()),
-        3: HeapObject(type=0, size=30, referents=set()),
-        4: HeapObject(type=0, size=40, referents=set()),
+        1: HeapObject(address=1, type=0, size=10, referents=set()),
+        2: HeapObject(address=2, type=0, size=20, referents=set()),
+        3: HeapObject(address=3, type=0, size=30, referents=set()),
+        4: HeapObject(address=4, type=0, size=40, referents=set()),
     }
     heap = Heap(_HEADER, threads=[], objects=objects, types={})
     inbound_references = InboundReferences(objects)
@@ -338,10 +338,10 @@ def test_forest_minimal() -> None:
 def test_forest_simple() -> None:
     # 1 -> 2  3 -> 4
     objects = {
-        1: HeapObject(type=0, size=10, referents={2}),
-        2: HeapObject(type=0, size=20, referents=set()),
-        3: HeapObject(type=0, size=30, referents={4}),
-        4: HeapObject(type=0, size=40, referents=set()),
+        1: HeapObject(address=1, type=0, size=10, referents={2}),
+        2: HeapObject(address=2, type=0, size=20, referents=set()),
+        3: HeapObject(address=3, type=0, size=30, referents={4}),
+        4: HeapObject(address=4, type=0, size=40, referents=set()),
     }
     heap = Heap(_HEADER, threads=[], objects=objects, types={})
     inbound_references = InboundReferences(objects)
@@ -358,8 +358,8 @@ def test_thread_minimal() -> None:
     # thread1 -> 1
     # thread2 -> 2
     objects = {
-        1: HeapObject(type=0, size=10, referents=set()),
-        2: HeapObject(type=0, size=20, referents=set()),
+        1: HeapObject(address=1, type=0, size=10, referents=set()),
+        2: HeapObject(address=2, type=0, size=20, referents=set()),
     }
 
     threads = [
@@ -395,12 +395,12 @@ def test_thread_simple_multi_frame() -> None:
     #            ^         |
     #            +---------+
     objects = {
-        1: HeapObject(type=0, size=10, referents={2, 3}),
-        2: HeapObject(type=0, size=20, referents=set()),
-        3: HeapObject(type=0, size=30, referents=set()),
-        4: HeapObject(type=0, size=40, referents={5}),
-        5: HeapObject(type=0, size=50, referents={6}),
-        6: HeapObject(type=0, size=60, referents={4}),
+        1: HeapObject(address=1, type=0, size=10, referents={2, 3}),
+        2: HeapObject(address=2, type=0, size=20, referents=set()),
+        3: HeapObject(address=3, type=0, size=30, referents=set()),
+        4: HeapObject(address=4, type=0, size=40, referents={5}),
+        5: HeapObject(address=5, type=0, size=50, referents={6}),
+        6: HeapObject(address=6, type=0, size=60, referents={4}),
     }
 
     threads = [
@@ -445,13 +445,13 @@ def test_thread_complex_1() -> None:
     # thread 2 --> 5
     #          \-> 7
     objects = {
-        1: HeapObject(type=0, size=10, referents={3}),
-        2: HeapObject(type=0, size=20, referents={1, 6}),
-        3: HeapObject(type=0, size=30, referents={2, 4}),
-        4: HeapObject(type=0, size=40, referents={5}),
-        5: HeapObject(type=0, size=50, referents={3}),
-        6: HeapObject(type=0, size=60, referents={7}),
-        7: HeapObject(type=0, size=70, referents=set()),
+        1: HeapObject(address=1, type=0, size=10, referents={3}),
+        2: HeapObject(address=2, type=0, size=20, referents={1, 6}),
+        3: HeapObject(address=3, type=0, size=30, referents={2, 4}),
+        4: HeapObject(address=4, type=0, size=40, referents={5}),
+        5: HeapObject(address=5, type=0, size=50, referents={3}),
+        6: HeapObject(address=6, type=0, size=60, referents={7}),
+        7: HeapObject(address=7, type=0, size=70, referents=set()),
     }
 
     threads = [
@@ -481,7 +481,7 @@ def test_thread_complex_1() -> None:
 def test_calculators_equivalent_on_big_generated() -> None:
     objects = {}
     for i in range(20_000):
-        objects[i] = HeapObject(type=0, size=20, referents=set())
+        objects[i] = HeapObject(address=i, type=0, size=20, referents=set())
         if i % 3 == 0:
             objects[i].referents = {i + 1}
 
