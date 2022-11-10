@@ -103,6 +103,11 @@ def objects(address: int) -> str:
         abort(404)
 
     obj = heap.objects[address]
+
+    well_known_type = next(
+        (k for k, v in heap.header.well_known_types.items() if v == obj.type), None
+    )
+
     return render_template(
         "objects.html",
         tab_object_active=True,
@@ -111,6 +116,7 @@ def objects(address: int) -> str:
         type=heap.types[obj.type],
         objects=heap.objects,
         retained_heap=retained_heap,
+        well_known_type=well_known_type,
     )
 
 
@@ -122,15 +128,16 @@ def objects_batch() -> JsonObject:
     result = []
     for address in addresses:
         if address not in heap.objects:
-            abort(404)
-        obj = heap.objects[address]
-        obj_json = dataclasses.asdict(obj)
-        obj_json["type"] = heap.types[obj.type]
-        obj_json["inbound_references"] = list(inbound_references[address])
-        obj_json["address"] = address
-        obj_json["str_repr"] = obj.str_repr
-        obj_json["retained_heap"] = retained_heap.get_for_object(address)
-        result.append(obj_json)
+            result.append(None)
+        else:
+            obj = heap.objects[address]
+            obj_json = dataclasses.asdict(obj)
+            obj_json["type"] = heap.types[obj.type]
+            obj_json["inbound_references"] = list(inbound_references[address])
+            obj_json["address"] = address
+            obj_json["str_repr"] = obj.str_repr
+            obj_json["retained_heap"] = retained_heap.get_for_object(address)
+            result.append(obj_json)
     return {"objects": result}
 
 

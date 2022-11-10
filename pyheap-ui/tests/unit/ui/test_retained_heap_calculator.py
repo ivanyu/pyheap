@@ -22,7 +22,7 @@ from pyheap_ui.heap_reader import Heap, HeapObject
 from pyheap_ui.heap_types import HeapHeader, HeapThread, HeapThreadFrame, HeapFlags
 
 
-_HEADER = HeapHeader(0, "", HeapFlags(True))
+_HEADER = HeapHeader(0, "", HeapFlags(True), well_known_types={})
 
 
 def test_minimal() -> None:

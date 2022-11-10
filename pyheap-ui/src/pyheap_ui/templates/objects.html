@@ -40,6 +40,25 @@
 {% endif %}
 {%- endmacro %}
 
+{% macro render_element(address) -%}
+{% if address in objects %}
+    {% if objects[address].str_repr is not none %}
+    <span class="inline-object-str text-muted">{{ objects[address].str_repr }}</span>
+    {% else %}
+    <span class="inline-object-str text-muted">(no string repr)</span>
+    {% endif %}
+
+    {{ render_object_link(address) }}
+
+    <span title="Retained heap, B" class="text-muted">
+        [<i class="bi bi-lock"></i>
+        {{ retained_heap.get_for_object(address) }}]
+    </span>
+{% else %}
+    (unknown)
+{% endif %}
+{%- endmacro %}
+
 <div id="object-panel">
     <p><strong>Address:</strong> {{ address }}</p>
     <p><strong>Type:</strong> <code>{{ type }}</code></p>
@@ -105,6 +124,35 @@
                 </div>
             </div>
         </div>
+
+        {% if well_known_type is not none %}
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="panelElements">
+                <button class="accordion-button" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#panelElements-collapse" aria-expanded="false"
+                        aria-controls="panelElements-collapse">
+                    Elements
+                </button>
+            </h2>
+            <div id="panelElements-collapse" class="accordion-collapse collapse show"
+                 aria-labelledby="panelElements">
+                <div class="accordion-body text-truncate overflow-scroll">
+                    <ul>
+                        {% if well_known_type == "dict" %}
+                            {% for key, value in obj.content.items() %}
+                                <li>{{ render_element(key) }}&nbsp;&nbsp;:&nbsp;&nbsp;{{ render_element(value) }}</li>
+                            {% endfor %}
+                        {% endif %}
+                        {% if well_known_type in ["list", "set", "tuple"] %}
+                            {% for el in obj.content %}
+                                <li>{{ render_element(el) }}</li>
+                            {% endfor %}
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </div>
 
     <div id="referent-tree-panel" class="text-truncate pt-3" style="overflow: scroll;">
