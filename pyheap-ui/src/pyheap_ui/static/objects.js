@@ -52,6 +52,9 @@ class ObjectTreeView {
     async render() {
         const topLevelList = this.createTreeList(false);
         for (const obj of (await this.#topLevelObjects)) {
+            if (obj === null) {
+                continue;
+            }
             const treeNode = this.createTreeNode(obj, null);
             topLevelList.append(treeNode);
         }

@@ -49,8 +49,8 @@ class RetainedHeap:
         self._object_retained_heap = object_retained_heap
         self._thread_retained_heap = thread_retained_heap
 
-    def get_for_object(self, addr: Address) -> int:
-        return self._object_retained_heap[addr]
+    def get_for_object(self, addr: Address) -> Optional[int]:
+        return self._object_retained_heap.get(addr)
 
     def get_for_thread(self, thread_name: ThreadName) -> int:
         return self._thread_retained_heap[thread_name]
@@ -234,7 +234,7 @@ class RetainedHeapCalculator:
 
             if use_subtrees and current in self._subtree_roots:
                 retained += self._object_retained_heap[current]
-            else:
+            elif current in self._heap.objects:
                 retained += self._heap.objects[current].size
                 to_be_added_to_front = self._heap.objects[current].referents - deleted
                 self._update_inbound_references_view(
