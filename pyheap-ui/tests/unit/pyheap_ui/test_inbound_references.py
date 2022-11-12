@@ -19,14 +19,14 @@ from pyheap_ui.heap_reader import HeapObject
 
 def test_minimal() -> None:
     objects = {
-        1: HeapObject(0, 0, set()),
+        1: HeapObject(address=1, type=0, size=0, referents=set()),
     }
     assert InboundReferences(objects)._inbound_references == {1: set()}
 
 
 def test_self_reference() -> None:
     objects = {
-        1: HeapObject(0, 0, {1}),
+        1: HeapObject(address=1, type=0, size=0, referents={1}),
     }
     assert InboundReferences(objects)._inbound_references == {1: {1}}
 

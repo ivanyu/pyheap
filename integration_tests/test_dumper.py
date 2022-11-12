@@ -64,6 +64,8 @@ def test_dumper(tmp_path: Path, dump_str_repr: bool) -> None:
                 _check_header(heap, dump_str_repr)
                 _check_threads_and_objects(heap, mock_inferior_file, dump_str_repr)
                 _check_common_types(heap, reader)
+                if dump_str_repr:
+                    _check_self_ref_containers_str_repr(heap)
     finally:
         os.remove(heap_file)
 
@@ -89,7 +91,7 @@ def _check_threads_and_objects(
 
     frame = main_thread.stack_trace[0]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 97
+    assert frame.lineno == 103
     assert frame.co_name == "function3"
     assert set(frame.locals.keys()) == {
         "a",
@@ -99,16 +101,18 @@ def _check_threads_and_objects(
         "progress_file_path",
     }
 
-    obj = heap.objects[frame.locals["a"]]
+    addr = frame.locals["a"]
+    obj = heap.objects[addr]
     assert obj == HeapObject(
-        type=_find_type_by_name(heap, "int"), size=28, referents=set()
+        address=addr, type=_find_type_by_name(heap, "int"), size=28, referents=set()
     )
     assert obj.attributes.keys() == _ATTRS_FOR_INT
     assert obj.str_repr == ("42" if dump_str_repr else None)
 
-    obj = heap.objects[frame.locals["dumper_path"]]
+    addr = frame.locals["dumper_path"]
+    obj = heap.objects[addr]
     assert obj == HeapObject(
-        type=_find_type_by_name(heap, "str"), size=110, referents=set()
+        address=addr, type=_find_type_by_name(heap, "str"), size=110, referents=set()
     )
     assert obj.attributes.keys() == _ATTRS_FOR_STR
     assert obj.str_repr == (
@@ -121,53 +125,58 @@ def _check_threads_and_objects(
 
     frame = main_thread.stack_trace[1]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 109
+    assert frame.lineno == 115
     assert frame.co_name == "function2"
     assert set(frame.locals.keys()) == {"a", "b"}
-    obj = heap.objects[frame.locals["a"]]
+    addr = frame.locals["a"]
+    obj = heap.objects[addr]
     assert obj == HeapObject(
-        type=_find_type_by_name(heap, "int"), size=28, referents=set()
+        address=addr, type=_find_type_by_name(heap, "int"), size=28, referents=set()
     )
     assert obj.attributes.keys() == _ATTRS_FOR_INT
     assert obj.str_repr == ("42" if dump_str_repr else None)
 
-    obj = heap.objects[frame.locals["b"]]
+    addr = frame.locals["b"]
+    obj = heap.objects[addr]
     assert obj == HeapObject(
-        type=_find_type_by_name(heap, "str"), size=53, referents=set()
+        address=addr, type=_find_type_by_name(heap, "str"), size=53, referents=set()
     )
     assert obj.attributes.keys() == _ATTRS_FOR_STR
     assert obj.str_repr == ("leaf" if dump_str_repr else None)
 
     frame = main_thread.stack_trace[2]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 113
+    assert frame.lineno == 119
     assert frame.co_name == "function1"
     assert set(frame.locals.keys()) == {"a", "b", "c"}
 
-    obj = heap.objects[frame.locals["a"]]
+    addr = frame.locals["a"]
+    obj = heap.objects[addr]
     assert obj == HeapObject(
-        type=_find_type_by_name(heap, "int"), size=28, referents=set()
+        address=addr, type=_find_type_by_name(heap, "int"), size=28, referents=set()
     )
     assert obj.attributes.keys() == _ATTRS_FOR_INT
     assert obj.str_repr == ("42" if dump_str_repr else None)
 
-    obj = heap.objects[frame.locals["b"]]
+    addr = frame.locals["b"]
+    obj = heap.objects[addr]
     assert obj == HeapObject(
-        type=_find_type_by_name(heap, "str"), size=53, referents=set()
+        address=addr, type=_find_type_by_name(heap, "str"), size=53, referents=set()
     )
     assert obj.attributes.keys() == _ATTRS_FOR_STR
     assert obj.str_repr == ("leaf" if dump_str_repr else None)
 
-    obj = heap.objects[frame.locals["c"]]
+    addr = frame.locals["c"]
+    obj = heap.objects[addr]
     assert obj == HeapObject(
-        type=_find_type_by_name(heap, "float"), size=24, referents=set()
+        address=addr, type=_find_type_by_name(heap, "float"), size=24, referents=set()
     )
     assert obj.attributes.keys() == _ATTRS_FOR_FLOAT
     assert obj.str_repr == ("12.5" if dump_str_repr else None)
 
     frame = main_thread.stack_trace[3]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 116
+    assert frame.lineno == 122
     assert frame.co_name == "<module>"
     expected_locals = {
         "__name__",
@@ -199,6 +208,8 @@ def _check_threads_and_objects(
         "some_list",
         "some_set",
         "some_tuple",
+        "self_ref_dict",
+        "self_ref_list",
         "function3",
         "function2",
         "function1",
@@ -207,17 +218,22 @@ def _check_threads_and_objects(
         expected_locals.remove("__cached__")
         expected_locals.remove("__annotations__")
     assert set(frame.locals.keys()) == expected_locals
-    obj = heap.objects[frame.locals["some_string"]]
+    addr = frame.locals["some_string"]
+    obj = heap.objects[addr]
     assert obj == HeapObject(
-        type=_find_type_by_name(heap, "str"), size=60, referents=set()
+        address=addr, type=_find_type_by_name(heap, "str"), size=60, referents=set()
     )
     assert obj.attributes.keys() == _ATTRS_FOR_STR
     assert obj.str_repr == ("hello world" if dump_str_repr else None)
 
-    obj = heap.objects[frame.locals["disabled_operations"]]
+    addr = frame.locals["disabled_operations"]
+    obj = heap.objects[addr]
     disabled_operations_type = _find_type_by_name(heap, "DisabledOperations")
     assert obj == HeapObject(
-        type=disabled_operations_type, size=0, referents={disabled_operations_type}
+        address=addr,
+        type=disabled_operations_type,
+        size=0,
+        referents={disabled_operations_type},
     )
     assert obj.attributes == {}
     assert obj.str_repr == ("<ERROR on __str__>" if dump_str_repr else None)
@@ -272,9 +288,10 @@ def _check_threads_and_objects(
         "local_1",
         "local_2",
     }
-    obj = heap.objects[frame.locals["local_1"]]
+    addr = frame.locals["local_1"]
+    obj = heap.objects[addr]
     assert obj == HeapObject(
-        type=_find_type_by_name(heap, "str"), size=62, referents=set()
+        address=addr, type=_find_type_by_name(heap, "str"), size=62, referents=set()
     )
     assert obj.attributes.keys() == _ATTRS_FOR_STR
     assert obj.str_repr == ("local_1 value" if dump_str_repr else None)
@@ -283,7 +300,7 @@ def _check_threads_and_objects(
     # assert obj.address == frame.locals["local_2"]
     assert obj.type == _find_type_by_name(heap, "list")
     assert obj.size == 64
-    assert obj.str_repr == ("['local_2 value']" if dump_str_repr else None)
+    assert obj.str_repr == ("[local_2 value]" if dump_str_repr else None)
     if dump_str_repr:
         assert {heap.objects[r].str_repr for r in obj.referents} == {"local_2 value"}
     else:
@@ -452,3 +469,12 @@ def _check_common_types(heap: Heap, reader: HeapReader) -> None:
                 type(attr_value).__name__
                 == heap.types[heap.objects[object_in_heap.attributes[attr]].type]
             )
+
+
+def _check_self_ref_containers_str_repr(heap: Heap) -> None:
+    main_thread = next(t for t in heap.threads if t.name == "MainThread")
+    frame = main_thread.stack_trace[-1]
+    self_ref_dict = heap.objects[frame.locals["self_ref_dict"]]
+    assert self_ref_dict.str_repr == "{x: {...}}"
+    self_ref_list = heap.objects[frame.locals["self_ref_list"]]
+    assert self_ref_list.str_repr == "[x, [...]]"

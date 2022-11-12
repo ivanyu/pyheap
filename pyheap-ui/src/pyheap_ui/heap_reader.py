@@ -15,7 +15,7 @@
 #
 import dataclasses
 import mmap
-
+from abc import ABC, abstractmethod
 import sys
 
 if sys.version_info >= (3, 9):
@@ -40,6 +40,7 @@ from typing import (
     List,
     Tuple,
     cast,
+    Mapping,
 )
 import struct
 from pyheap_ui.heap_types import (
@@ -104,6 +105,7 @@ class HeapReader:
         self._frequent_attrs: Optional[List[str]] = None
         self._common_types: Optional[Dict[Address, _CommonType]] = None
         self._header: Optional[HeapHeader] = None
+        self._objects: Optional[ObjectDict] = None
 
     def read(self) -> Heap:
         # Header
@@ -123,8 +125,6 @@ class HeapReader:
     def _read(self, type_: Type[T]) -> T:
         if type_ == HeapHeader:
             return self._read_heap_header()
-        elif type_ == HeapObject:
-            return self._read_heap_object()
         elif type_ == HeapFlags:
             return self._read_heap_flags()
         elif type_ == ObjectDict:
@@ -185,9 +185,11 @@ class HeapReader:
     def _get_args(type_: Type[T]) -> Any:
         return typing_extensions.get_args(type_)
 
-    def _read_heap_object(self) -> HeapObject:
+    def _read_heap_object(self, address: Address) -> HeapObject:
         type_ = self._read(Address)
         size_ = self._read(UnsignedInt)
+
+        is_well_known_container_type = type_ in self._header.well_known_types.values()
 
         content: ObjectContent = None
         extra_referents: Set[Address] = set()
@@ -209,6 +211,7 @@ class HeapReader:
         referents.update(extra_referents)
 
         r = HeapObject(
+            address=address,
             type=type_,
             size=size_,
             referents=referents,
@@ -228,9 +231,11 @@ class HeapReader:
                 -1, lambda _: self._common_types[r.type].attributes
             )
 
+        r._str_repr_func = self._str_repr_provider.str_repr
+        self._str_repr_provider.set_str_repr_offset(address, self._offset)
+
         # Skip the string representation.
-        if self._flags.with_str_repr:
-            r.set_read_str_repr_func(self._offset, self._read_str_repr)
+        if self._flags.with_str_repr and not is_well_known_container_type:
             self._skip_long_string()
 
         return r
@@ -255,10 +260,6 @@ class HeapReader:
             name = self._frequent_attrs[true_index]
         return AttributeName(name)
 
-    def _read_str_repr(self, offset: int) -> str:
-        self._offset = offset
-        return self._read_long_string()
-
     def _read_heap_flags(self) -> HeapFlags:
         flag_with_str_repr = 1
         value = self._read_unsigned_long()
@@ -269,8 +270,29 @@ class HeapReader:
     def _read_object_dict(self) -> ObjectDict:
         self._frequent_attrs = self._read_generic_list(List[str])
         self._common_types = self._read_generic_dict(Dict[Address, _CommonType])
-        r = ObjectDict(self._read_generic_dict(ObjectDict.__supertype__))
-        return r
+
+        objects = ObjectDict({})
+
+        if self._header.flags.with_str_repr:
+            self._str_repr_provider = _StrReprProvider(
+                well_known_types=self._header.well_known_types,
+                objects=objects,
+                read_str_repr=self._read_str_repr,
+            )
+        else:
+            self._str_repr_provider = _NoneStrReprProvider()
+
+        dict_size = self._read_unsigned_int()
+        for _ in range(dict_size):
+            addr = self._read(Address)
+            obj = self._read_heap_object(addr)
+            objects[addr] = obj
+
+        return objects
+
+    def _read_str_repr(self, offset: int) -> str:
+        self._offset = offset
+        return self._read_long_string()
 
     def _read_dataclass(self, type_: Type[T]) -> T:
         fields = {}
@@ -369,3 +391,110 @@ class HeapReader:
         value = self._UNSIGNED_BOOL_STRUCT.unpack_from(self._buf, self._offset)[0]
         self._offset += self._UNSIGNED_BOOL_STRUCT_SIZE
         return value
+
+
+class _AbstractStrReprProvider(ABC):
+    @abstractmethod
+    def set_str_repr_offset(self, address: Address, offset: int) -> None:
+        pass
+
+    @abstractmethod
+    def str_repr(self, obj: HeapObject) -> Optional[str]:
+        pass
+
+
+class _NoneStrReprProvider(_AbstractStrReprProvider):
+    def set_str_repr_offset(self, address: Address, offset: int) -> None:
+        pass  # do nothing
+
+    def str_repr(self, obj: HeapObject) -> Optional[str]:
+        return None
+
+
+class _StrReprProvider(_AbstractStrReprProvider):
+    def __init__(
+        self,
+        *,
+        well_known_types: Dict[str, Address],
+        objects: ObjectDict,
+        read_str_repr: Callable[[int], str],
+    ) -> None:
+        self._offsets = {}
+
+        self._dict_type = well_known_types["dict"]
+        self._list_type = well_known_types["list"]
+        self._set_type = well_known_types["set"]
+        self._tuple_type = well_known_types["tuple"]
+        self._container_types = {
+            self._dict_type,
+            self._list_type,
+            self._set_type,
+            self._tuple_type,
+        }
+
+        self._objects = objects
+        self._read_str_repr = read_str_repr
+
+    def set_str_repr_offset(self, address: Address, offset: int) -> None:
+        """Sets the string representation offset in the file.
+
+        The offset may not always be valid: For the well-known container types, it's not supposed to be used."""
+        self._offsets[address] = offset
+
+    def str_repr(self, obj: HeapObject) -> Optional[str]:
+        return self._str_repr_internal(obj.address, set())
+
+    def _str_repr_internal(
+        self, address: Address, seen_objects: Set[Address]
+    ) -> Optional[str]:
+        obj = self._objects.get(address)
+
+        if obj is None:
+            return "(unknown)"
+        if obj.type not in self._container_types:
+            return self._read_str_repr(self._offsets[obj.address])
+
+        left_bracket: str
+        right_bracket: str
+        if obj.type == self._dict_type:
+            left_bracket = "{"
+            right_bracket = "}"
+        elif obj.type == self._list_type:
+            left_bracket = "["
+            right_bracket = "]"
+        elif obj.type == self._set_type:
+            left_bracket = "{"
+            right_bracket = "}"
+        elif obj.type == self._tuple_type:
+            left_bracket = "("
+            right_bracket = ")"
+        else:
+            raise ValueError(f"Unsupported type {obj.type}")
+
+        if obj.address in seen_objects:
+            return left_bracket + "..." + right_bracket
+
+        inner: str
+        new_seen_objects = set(seen_objects)
+        new_seen_objects.add(obj.address)
+
+        if obj.type == self._dict_type:
+            content = cast(Mapping, obj.content)
+            inner = ", ".join(
+                self._str_repr_internal(k, new_seen_objects)
+                + ": "
+                + self._str_repr_internal(v, new_seen_objects)
+                for k, v in content.items()
+            )
+        elif (
+            obj.type == self._list_type
+            or obj.type == self._tuple_type
+            or obj.type == self._set_type
+        ):
+            content = cast(Iterable, obj.content)
+            inner = ", ".join(
+                self._str_repr_internal(a, new_seen_objects) for a in content
+            )
+        else:
+            raise ValueError(f"Unsupported type {obj.type}")
+        return left_bracket + inner + right_bracket

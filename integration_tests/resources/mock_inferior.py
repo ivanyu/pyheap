@@ -82,6 +82,12 @@ some_set = {"a", "b", "c", "d"}
 some_tuple = (3.14, 2.718)
 
 
+self_ref_dict = {}
+self_ref_dict["x"] = self_ref_dict
+self_ref_list = ["x"]
+self_ref_list.append(self_ref_list)
+
+
 def function3(a: int) -> None:
     dumper_path = str(
         Path(__file__).parent.parent.parent / "pyheap" / "src" / "dumper_inferior.py"
