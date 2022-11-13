@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+var notifications = null;
+
 const escapeReplacements = {
     "&": "&amp;",
     "<": "&lt;",
@@ -29,14 +31,23 @@ function escapeHtml(string) {
 }
 
 async function getObjects(addresses) {
-    const response = await fetch(
+    const responseJson = await fetch(
         "/api/objects/",
         {
             "method": "POST",
             "body": JSON.stringify({"addresses": addresses}),
             "headers": {"Accept": "application/json", "Content-Type": "application/json"}
+        })
+        .then((response) => {
+            if (response.ok) {
+                return response.json();
+            }
+
+            const message = response.status + " " + response.statusText;
+            notifications.showError(message);
+            throw new Error(message);
         });
-    return (await response.json())["objects"];
+    return (await responseJson)["objects"];
 }
 
 async function getObject(addr) {
@@ -175,7 +186,36 @@ class InboundReferencesObjectTreeView extends ObjectTreeView {
     }
 }
 
+class Notifications {
+    #notificationsArea;
+    constructor(notificationsArea) {
+        this.#notificationsArea = notificationsArea;
+    }
+
+    showError(text) {
+        const toastEl = $(`
+            <div class="toast text-bg-danger" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="false">
+                <div class="toast-header">
+                    <strong class="me-auto">Error</strong>
+                    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body">
+                  ${text}
+                </div>
+            </div>
+        `);
+        toastEl.on("hidden.bs.toast", () => {
+            toastEl.remove();
+        });
+        this.#notificationsArea.append(toastEl);
+        const toast = new bootstrap.Toast(toastEl);
+        toast.show();
+    }
+}
+
 $( document ).ready(async function() {
+    notifications = new Notifications($("#notifications-area"));
+
     const rootObject = await getObject(rootAddr);
     const rotv = new ReferentsObjectTreeView(rootObject);
     const irotv = new InboundReferencesObjectTreeView(rootObject);
