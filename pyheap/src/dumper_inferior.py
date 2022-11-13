@@ -16,6 +16,7 @@
 from __future__ import annotations
 import gc
 import json
+import os
 from contextlib import closing
 import sys
 import threading
@@ -626,6 +627,11 @@ try:
 except:
     print(traceback.format_exc())
     result_error = traceback.format_exc()
+    try:
+        os.remove(heap_file)
+        result_error += f"\nHeap file {heap_file} deleted"
+    except Exception as e:
+        result_error += f"\nError deleting heap file {heap_file}: {e}"
 finally:
     inspect._shadowed_dict = _shadowed_dict_orig
     inspect._check_class = _check_class_orig
