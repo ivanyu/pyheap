@@ -366,7 +366,7 @@ class HeapReader:
             r = struct.unpack_from(fmt, self._buf, self._offset)[0]
             self._offset += struct.calcsize(fmt)
 
-        return r.decode("utf-8")
+        return r.decode("utf-8", "backslashreplace")
 
     @cache
     def _get_string_struct(self, length: int) -> struct.Struct:
