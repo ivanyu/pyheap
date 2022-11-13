@@ -126,6 +126,8 @@ When the break point is hit by one of the threads, the Python script `injector.p
 
 The dumper script uses the Python standard modules `gc` and `sys` to collect some information about heap objects and their sizes. It does some job to avoid irrelevant garbage created by itself to appear in the heap dump, but some traces of it will be there.
 
+A dump is not a fair snapshot in time as some threads and the garbage collector continue working while it's being done.
+
 ### What Objects Are Dumped
 
 Currently, the dumper sees objects traced by the CPython garbage collector and the objects they reference to (more precisely, the ones they return in their [`tp_traverse`](https://docs.python.org/3/c-api/typeobj.html#c.PyTypeObject.tp_traverse)).
