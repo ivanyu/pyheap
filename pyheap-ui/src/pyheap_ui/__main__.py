@@ -142,19 +142,6 @@ def objects_batch() -> JsonObject:
     return {"objects": result}
 
 
-@app.route("/api/objects/<int:address>")
-def api_object_get(address: int) -> JsonObject:
-    if address not in heap.objects:
-        abort(404)
-
-    obj = heap.objects[address]
-    result = dict(obj.to_json())
-    result["type"] = heap.types[obj.type]
-    result["inbound_references"] = list(heap.inbound_references[address])
-    result["retained_heap"] = retained_heap.get_for_object(address)
-    return result
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Heap viewer UI.", allow_abbrev=False)
     parser.add_argument("--file", "-f", type=str, required=True, help="heap file name")
