@@ -77,7 +77,13 @@
             <td><code>{{ types[obj.type] }}</code></td>
             <td>{{ retained_heap_size }}</td>
             {% if with_str_repr %}
-            <td>{{ obj.str_repr }}</td>
+                {% if obj.str_repr|length > 255 %}
+                <td><span>{{ obj.str_repr|truncate(255, end="") }} <a title="Expand" onclick="toggleFullText(event)" href="#">...</a></span>
+                    <span style="display: none;">{{ obj.str_repr }}</span>
+                </td>
+                {% else %}
+                <td>{{ obj.str_repr }}</td>
+                {% endif %}
             {% endif %}
         </tr>
         {% endfor %}
@@ -89,4 +95,14 @@
 {% endblock %}
 
 {% block script %}
+<script>
+function toggleFullText(event) {
+    const a = event.target;
+    const shortTextSpan = a.parentElement;
+    const longTextSpan = shortTextSpan.nextElementSibling;
+    shortTextSpan.remove();
+    longTextSpan.style.display = 'block';
+    event.preventDefault();
+}
+</script>
 {% endblock %}
