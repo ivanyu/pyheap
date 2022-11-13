@@ -116,12 +116,16 @@ class _HeapWriter:
         self.write_unsigned_long(self._MAGIC)
 
     def write_long_string(self, value: str) -> None:
-        b = value.encode("utf-8")
+        b = self._encode_string(value)
         self._f.write(struct.pack(f"!H{len(b)}s", len(b), b))
 
     def write_short_string(self, value: str) -> None:
-        b = value.encode("utf-8")
+        b = self._encode_string(value)
         self._f.write(struct.pack(f"!h{len(b)}s", len(b), b))
+
+    @staticmethod
+    def _encode_string(value: str) -> bytes:
+        return value.encode("utf-8", "backslashreplace")
 
     def write_signed_short(self, value: int) -> None:
         self._f.write(self._SIGNED_SHORT_STRUCT.pack(value))
