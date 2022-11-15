@@ -76,7 +76,7 @@ def _dumper_process(
     dumper_proc = subprocess.Popen(
         [
             sys.executable,
-            "src/pyheap_dumper.py",
+            "dist/pyheap_dumper.pyz",
             "--pid",
             str(inferiod_pid),
             "--file",

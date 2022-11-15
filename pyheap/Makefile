@@ -18,12 +18,16 @@ version := $(shell cat pyproject.toml | grep version | head -n 1 | sed -e 's/ver
 
 all: check dist
 
-dist: dist/pyheap-$(version).tar.gz
+dist: dist/pyheap-$(version).tar.gz dist/pyheap_dumper.pyz
 	@echo "Distribution built: $^"
 
 dist/pyheap-$(version).tar.gz: src/dumper_inferior.py src/injector.py src/pyheap_dumper.py
 	mkdir -p dist
 	tar --transform='s/src\//pyheap\//g' -czf $@ $^
+
+dist/pyheap_dumper.pyz: src
+	mkdir -p dist
+	python3 -m zipapp src -m pyheap_dumper:main --output=$@
 
 clean:
 	rm -rf dist

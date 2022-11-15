@@ -28,14 +28,14 @@ Find the PID of a running CPython process you're interested in.
 
 Run:
 ```bash
-$ python3 pyheap/src/pyheap_dumper.py --pid <pid> --file $(pwd)/heap.pyheap
+$ python3 pyheap_dumper.pyz --pid <pid> --file $(pwd)/heap.pyheap
 ```
 
 Please note that the heap file path will be written by target process so make sure the path exists for it (e.g. if it is in a separate mount namespace) and is writable.
 
 See 
 ```bash
-$ python3 pyheap/src/pyheap_dumper.py -h
+$ python3 pyheap_dumper.pyz -h
 ```
 for additional options.
 
@@ -138,7 +138,7 @@ Currently, the dumper sees objects traced by the CPython garbage collector and t
 
 Integration tests run on CI. However, end-to-end tests that use the real GDB cannot be run in GitHub Actions. You can run them locally using
 ```bash
-make integration_tests
+make clean integration_tests
 ```
 
 You need [pyenv](https://github.com/pyenv/pyenv) with Python 3.8, 3.9, 3.10, and 3.11 installed and [Poetry](https://python-poetry.org/).

@@ -117,7 +117,9 @@ jobs:
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: ./pyheap/dist/pyheap-*.tar.gz
+          files: |
+            .pyheap/dist/pyheap_dumper.pyz
+            ./pyheap/dist/pyheap-*.tar.gz
 
   build_and_publish_pyheap_ui_docker_image:
     name: Build and publish PyHeap UI Docker image
