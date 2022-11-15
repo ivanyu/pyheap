@@ -178,12 +178,15 @@ def _dump_heap() -> str:
         all_locals = _write_threads_and_return_locals(writer, messages)
 
         frequent_attributes = _write_frequent_attributes(writer)
-        common_types, objects_to_visit = _write_common_types(
+
+        attribute_errors_total = 0
+        common_types, objects_to_visit, attribute_errors = _write_common_types(
             writer, frequent_attributes
         )
+        attribute_errors_total += attribute_errors
 
         with closing(ProgressReporter(progress_file)) as progress_reporter:
-            types, visited = _write_objects_and_return_types(
+            types, visited, attribute_errors = _write_objects_and_return_types(
                 writer=writer,
                 gc_tracked_objects=gc_tracked_objects,
                 locals_=all_locals,
@@ -193,6 +196,10 @@ def _dump_heap() -> str:
                 progress_reporter=progress_reporter,
                 messages=messages,
             )
+        attribute_errors_total += attribute_errors
+
+        if attribute_errors_total > 0:
+            messages.append(f"Errors getting attribute: {attribute_errors_total}")
 
         writer.write_unsigned_int(len(types))
         for addr, type_name in types.items():
@@ -207,7 +214,7 @@ def _dump_heap() -> str:
         + f"Took {(time.monotonic() - global_start):.3f} seconds"
     )
     if messages:
-        result += "\n" + "\n".join(messages) + "\n"
+        result += "\nWarnings and other messages:\n" + "\n".join(messages) + "\n"
     return result
 
 
@@ -417,7 +424,7 @@ def _write_frequent_attributes(writer: _HeapWriter) -> Dict[str, int]:
 
 def _write_common_types(
     writer: _HeapWriter, frequent_attributes: Dict[str, int]
-) -> Tuple[Set[Type], List[Any]]:
+) -> Tuple[Set[Type], List[Any], int]:
     """Write attributes of "common" types.
 
     We consider "common" the most basic (and most frequent) types, which are not dict-based,
@@ -435,6 +442,8 @@ def _write_common_types(
     }
     to_visit = []
 
+    attribute_errors = 0
+
     writer.write_unsigned_int(len(common_types_and_examples))
     for t, example in common_types_and_examples.items():
         to_visit.append(t)
@@ -450,13 +459,13 @@ def _write_common_types(
                 to_visit.append(attr_value)
                 attrs.append((attr, attr_value))
             except (AttributeError, ValueError):
-                pass
+                attribute_errors += 1
 
         writer.write_unsigned_int(len(attrs))
         for attr, attr_value in attrs:
             writer.write_attribute(attr, attr_value, frequent_attributes)
 
-    return set(common_types_and_examples.keys()), to_visit
+    return set(common_types_and_examples.keys()), to_visit, attribute_errors
 
 
 def _write_objects_and_return_types(
@@ -469,7 +478,7 @@ def _write_objects_and_return_types(
     additional_objects_to_visit: List[Any],
     progress_reporter: ProgressReporter,
     messages: List[str],
-) -> Tuple[Dict[int, str], int]:
+) -> Tuple[Dict[int, str], int, int]:
     seen_ids = set()
     to_visit: List[Any] = []
     to_visit.extend(gc_tracked_objects)
@@ -485,6 +494,7 @@ def _write_objects_and_return_types(
     invisible_objects.add(id(inspect._shadowed_dict))
     invisible_objects.add(id(inspect._check_class))
 
+    attribute_errors = 0
     done = 0
     progress_reporter.report(done, len(to_visit))
 
@@ -561,7 +571,7 @@ def _write_objects_and_return_types(
                         to_visit.append(attr_value)
                         attrs.append((attr, attr_value))
                     except (AttributeError, ValueError):
-                        pass
+                        attribute_errors += 1
             except Exception as e:
                 messages.append(f"Error collecting attributes of type {type_}: {e}")
 
@@ -583,7 +593,7 @@ def _write_objects_and_return_types(
     writer.close_unsigned_int_mark(object_count_mark, done)
 
     progress_reporter.report(done, len(to_visit))
-    return result_types, done
+    return result_types, done, attribute_errors
 
 
 class ProgressReporter:
