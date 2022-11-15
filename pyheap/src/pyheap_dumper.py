@@ -20,6 +20,7 @@ import base64
 import json
 import os.path
 from dataclasses import dataclass
+from importlib.machinery import SourceFileLoader
 from subprocess import Popen
 import tempfile
 import time
@@ -32,11 +33,8 @@ def dump_heap(args: argparse.Namespace) -> None:
     print(f"Dumping heap from process {args.pid} into {heap_file_path}")
     print(f"Max length of string representation is {args.str_repr_len}")
 
-    module_path = Path(__file__).parent
-    injector_path = module_path / "injector.py"
-    print(f"Injector path: {injector_path}")
-
-    dumper_code = _prepare_dumper_code(module_path)
+    injector_code = _load_code("injector.py")
+    dumper_code = _prepare_dumper_code()
 
     try:
         progress_file_path = os.path.join(
@@ -59,7 +57,7 @@ def dump_heap(args: argparse.Namespace) -> None:
         "-ex",
         "del 1",
         "-ex",
-        f"source {injector_path}",
+        f"python {injector_code}",
         "-ex",
         "set print elements 0",
         "-ex",
@@ -91,11 +89,16 @@ def dump_heap(args: argparse.Namespace) -> None:
     exit(p.returncode)
 
 
-def _prepare_dumper_code(module_path: Path) -> str:
-    dumper_inferior_path = module_path / "dumper_inferior.py"
-    print(f"Code path: {dumper_inferior_path}")
-    with open(dumper_inferior_path, "r") as f:
-        code = f.read()
+def _load_code(filename: str) -> str:
+    if isinstance(__loader__, SourceFileLoader):
+        filepath = str(Path(__loader__.path).parent / filename)
+        return __loader__.get_data(filepath).decode("utf-8")
+    else:
+        return __loader__.get_data(filename).decode("utf-8")
+
+
+def _prepare_dumper_code() -> str:
+    code = _load_code("dumper_inferior.py")
     return base64.b64encode(code.encode("utf-8")).decode("utf-8")
 
 
@@ -167,7 +170,7 @@ class ProgressTracker:
             )
 
 
-if __name__ == "__main__":
+def main() -> None:
     parser = argparse.ArgumentParser(description="Dump heap.", allow_abbrev=False)
     parser.add_argument(
         "--pid", "-p", type=int, required=True, help="target process PID"
@@ -184,3 +187,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     args.func(args)
+
+
+if __name__ == "__main__":
+    main()
