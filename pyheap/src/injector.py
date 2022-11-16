@@ -100,10 +100,10 @@ class DumpPythonHeap(gdb.Function):
             return self._invoke0(
                 dumper_code_b64, heap_file, str_repr_len, progress_file
             )
-        except Exception as e:
+        except:
             import traceback
 
-            traceback.print_exception(e)
+            traceback.print_exc()
             return 1
 
     def _invoke0(

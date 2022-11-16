@@ -27,6 +27,7 @@ pyheap/dist/pyheap_dumper.pyz:
 .PHONY: integration_tests_3_8
 integration_tests_3_8: pyheap/dist/pyheap_dumper.pyz
 	(cd integration_tests && \
+	  $(MAKE) test_target_docker_image_3_8 && \
 	  PYENV_VERSION=3.8 poetry env use python && \
 	  poetry run pip install -e ../pyheap-ui/ && \
 	  poetry install && \
@@ -35,6 +36,7 @@ integration_tests_3_8: pyheap/dist/pyheap_dumper.pyz
 .PHONY: integration_tests_3_9
 integration_tests_3_9: pyheap/dist/pyheap_dumper.pyz
 	(cd integration_tests && \
+	  $(MAKE) test_target_docker_image_3_9 && \
 	  PYENV_VERSION=3.9 poetry env use python && \
 	  poetry run pip install -e ../pyheap-ui/ && \
 	  poetry install && \
@@ -43,6 +45,7 @@ integration_tests_3_9: pyheap/dist/pyheap_dumper.pyz
 .PHONY: integration_tests_3_10
 integration_tests_3_10: pyheap/dist/pyheap_dumper.pyz
 	(cd integration_tests && \
+	  $(MAKE) test_target_docker_image_3_10 && \
 	  PYENV_VERSION=3.10 poetry env use python && \
 	  poetry run pip install -e ../pyheap-ui/ && \
 	  poetry install && \
@@ -51,6 +54,7 @@ integration_tests_3_10: pyheap/dist/pyheap_dumper.pyz
 .PHONY: integration_tests_3_11
 integration_tests_3_11: pyheap/dist/pyheap_dumper.pyz
 	(cd integration_tests && \
+	  $(MAKE) test_target_docker_image_3_11 && \
 	  PYENV_VERSION=3.11 poetry env use python && \
 	  poetry run pip install -e ../pyheap-ui/ && \
 	  poetry install && \

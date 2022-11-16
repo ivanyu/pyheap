@@ -29,6 +29,18 @@ from typing import Optional, Dict, Any, Callable
 
 
 def dump_heap(args: argparse.Namespace) -> None:
+    ns_pid: int
+    with open(f"/proc/{args.pid}/status", "r") as f:
+        for l in f.readlines():
+            l = l.strip()
+            if l.startswith("NStgid"):
+                ns_pid = int(l.split("\t")[-1].strip())
+                break
+        else:
+            print("Cannot determine target process PID in its namespace")
+            exit(1)
+    print(f"Target process PID in its namespace: {ns_pid}")
+
     heap_file_path = args.file
     print(f"Dumping heap from process {args.pid} into {heap_file_path}")
     print(f"Max length of string representation is {args.str_repr_len}")
@@ -46,6 +58,10 @@ def dump_heap(args: argparse.Namespace) -> None:
         progress_file_path = ""
 
     cmd = [
+        "nsenter",
+        "-t",
+        str(args.pid),
+        "-a",
         "gdb",
         "--readnow",
         "-ex",
@@ -69,7 +85,7 @@ def dump_heap(args: argparse.Namespace) -> None:
         "-ex",
         "quit $dump_success",
         "-p",
-        str(args.pid),
+        str(ns_pid),
     ]
     p = Popen(cmd, shell=False)
     progress_tracker = ProgressTracker(
