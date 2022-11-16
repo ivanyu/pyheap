@@ -118,7 +118,7 @@ Address         | Object type     | Retained heap size | String representation
 
 ## How It Works
 
-PyHeap uses GDB to attach to a running CPython process (the debug symbols are not required).
+PyHeap uses GDB to attach to a running CPython process.
 
 After the debugger is attached, a break point is set at the [`_PyEval_EvalFrameDefault`](https://github.com/python/cpython/blob/3594ebca2cacf5d9b5212d2c487fd017cd00e283/Python/ceval.c#L1577) function inside CPython, which indicated the Python stack frame execution. It's a good spot to intervene into the CPython's normal job.
 
