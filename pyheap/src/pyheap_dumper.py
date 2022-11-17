@@ -16,7 +16,6 @@
 from __future__ import annotations
 
 import argparse
-import base64
 import json
 import os.path
 from dataclasses import dataclass
@@ -115,7 +114,8 @@ def _load_code(filename: str) -> str:
 
 def _prepare_dumper_code() -> str:
     code = _load_code("dumper_inferior.py")
-    return base64.b64encode(code.encode("utf-8")).decode("utf-8")
+    # Encode as hexadecimal characters (\x42), which is understandable by C.
+    return "".join([hex(b).replace("0x", r"\\x") for b in code.encode("utf-8")])
 
 
 @dataclass
