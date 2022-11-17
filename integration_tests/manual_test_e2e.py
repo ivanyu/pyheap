@@ -35,7 +35,9 @@ def test_e2e(docker: bool, test_heap_path: str) -> None:
         inferior_heap_path = test_heap_path
     with _inferior_process(
         docker, inferior_heap_path, test_heap_path
-    ) as ip_pid, _dumper_process(inferior_heap_path, ip_pid) as dp:
+    ) as ip_pid, _dumper_process(
+        inferior_heap_path, ip_pid, sudo_required=docker
+    ) as dp:
         print(f"Inferior process {ip_pid}")
         print(f"Dumper process {dp.pid}")
         dp.wait(10)
@@ -153,18 +155,21 @@ def _inferior_process(
 
 @contextmanager
 def _dumper_process(
-    test_heap_path: str, inferiod_pid: int
+    test_heap_path: str, inferiod_pid: int, sudo_required: bool
 ) -> Iterator[subprocess.Popen]:
+    cmd = []
+    if sudo_required:
+        cmd = ["sudo"]
+    cmd += [
+        sys.executable,
+        "dist/pyheap_dump.pyz",
+        "--pid",
+        str(inferiod_pid),
+        "--file",
+        test_heap_path,
+    ]
     dumper_proc = subprocess.Popen(
-        [
-            "sudo",
-            sys.executable,
-            "dist/pyheap_dump.pyz",
-            "--pid",
-            str(inferiod_pid),
-            "--file",
-            test_heap_path,
-        ],
+        cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         cwd="../pyheap",

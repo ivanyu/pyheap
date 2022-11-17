@@ -33,6 +33,8 @@ $ python3 pyheap_dump.pyz --pid <pid> --file $(pwd)/heap.pyheap
 
 Please note that the heap file path will be written by target process so make sure the path exists for it (e.g. if it is in a separate mount namespace) and is writable.
 
+If the target process belongs to a different user, use `sudo`.
+
 See 
 ```bash
 $ python3 pyheap_dump.pyz -h
