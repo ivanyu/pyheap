@@ -61,7 +61,7 @@ def dump_heap(args: argparse.Namespace) -> None:
     cmd += [
         "gdb",
         "--readnow",
-        "-ex",
+        "-iex",
         "set debuginfod enabled off",
         "-ex",
         "break _PyEval_EvalFrameDefault",
