@@ -24,21 +24,20 @@ from subprocess import Popen
 import tempfile
 import time
 from pathlib import Path
-from typing import Optional, Dict, Any, Callable
+from typing import Optional, Dict, Any, Callable, Union
 
 
 def dump_heap(args: argparse.Namespace) -> None:
-    ns_pid: int
-    with open(f"/proc/{args.pid}/status", "r") as f:
-        for l in f.readlines():
-            l = l.strip()
-            if l.startswith("NStgid"):
-                ns_pid = int(l.split("\t")[-1].strip())
-                break
-        else:
-            print("Cannot determine target process PID in its namespace")
-            exit(1)
-    print(f"Target process PID in its namespace: {ns_pid}")
+    gdb_pid: int
+    nsenter_needed: bool
+    if _pid_namespace(args.pid) == _pid_namespace(os.getpid()):
+        print("Dumper and target are in same PID namespace")
+        gdb_pid = args.pid
+        nsenter_needed = False
+    else:
+        gdb_pid = _target_pid_in_own_namespace(args.pid)
+        print(f"Target process PID in its namespace: {gdb_pid}")
+        nsenter_needed = True
 
     heap_file_path = args.file
     print(f"Dumping heap from process {args.pid} into {heap_file_path}")
@@ -56,11 +55,10 @@ def dump_heap(args: argparse.Namespace) -> None:
         print(f"Error creating progress file: {e}, progress will not be reported")
         progress_file_path = ""
 
-    cmd = [
-        "nsenter",
-        "-t",
-        str(args.pid),
-        "-a",
+    cmd = []
+    if nsenter_needed:
+        cmd += ["nsenter", "-t", str(args.pid), "-a"]
+    cmd += [
         "gdb",
         "--readnow",
         "-ex",
@@ -84,7 +82,7 @@ def dump_heap(args: argparse.Namespace) -> None:
         "-ex",
         "quit $dump_success",
         "-p",
-        str(ns_pid),
+        str(gdb_pid),
     ]
     p = Popen(cmd, shell=False)
     progress_tracker = ProgressTracker(
@@ -102,6 +100,26 @@ def dump_heap(args: argparse.Namespace) -> None:
     if p.returncode != 0:
         print("Dumping finished with error")
     exit(p.returncode)
+
+
+def _pid_namespace(pid: Union[int, str]) -> str:
+    try:
+        return os.readlink(f"/proc/{pid}/ns/pid")
+    except PermissionError as e:
+        print(e)
+        print("Hint: the target process is likely run under a different user, use sudo")
+        exit(1)
+
+
+def _target_pid_in_own_namespace(target_pid: Union[int, str]) -> int:
+    with open(f"/proc/{target_pid}/status", "r") as f:
+        for l in f.readlines():
+            l = l.strip()
+            if l.startswith("NStgid"):
+                return int(l.split("\t")[-1].strip())
+        else:
+            print("Cannot determine target process PID in its namespace")
+            exit(1)
 
 
 def _load_code(filename: str) -> str:
