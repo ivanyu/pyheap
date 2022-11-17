@@ -118,7 +118,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            .pyheap/dist/pyheap_dumper.pyz
+            .pyheap/dist/pyheap_dump.pyz
             ./pyheap/dist/pyheap-*.tar.gz
 
   build_and_publish_pyheap_ui_docker_image:

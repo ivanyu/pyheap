@@ -159,7 +159,7 @@ def _dumper_process(
         [
             "sudo",
             sys.executable,
-            "dist/pyheap_dumper.pyz",
+            "dist/pyheap_dump.pyz",
             "--pid",
             str(inferiod_pid),
             "--file",

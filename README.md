@@ -28,14 +28,14 @@ Find the PID of a running CPython process you're interested in.
 
 Run:
 ```bash
-$ python3 pyheap_dumper.pyz --pid <pid> --file $(pwd)/heap.pyheap
+$ python3 pyheap_dump.pyz --pid <pid> --file $(pwd)/heap.pyheap
 ```
 
 Please note that the heap file path will be written by target process so make sure the path exists for it (e.g. if it is in a separate mount namespace) and is writable.
 
 See 
 ```bash
-$ python3 pyheap_dumper.pyz -h
+$ python3 pyheap_dump.pyz -h
 ```
 for additional options.
 
@@ -47,7 +47,7 @@ To use PyHeap with a containerized/namespaced process, find the process ID in th
 
 Make sure the GDB executable is available in the target mount namespace. If the target is in a Docker container, you most likely need to install GDB inside it (please note this can be done in a running container as well).
 
-If the target process is running under a different user (normal for Docker), you need to use `sudo` with `python3 pyheap_dumper.pyz ...`.
+If the target process is running under a different user (normal for Docker), you need to use `sudo` with `python3 pyheap_dump.pyz ...`.
 
 Please keep in mind that the heap file is written by the target process **inside** the container (unless you provide some path mounted to the outside world). You can copy a heap file out with `docker cp` or equivalent for your container system.
 
