@@ -39,6 +39,18 @@ $ python3 pyheap_dumper.pyz -h
 ```
 for additional options.
 
+#### Containers nad Namespaces
+
+PyHeap can attach to targets that are running in Linux namespaces. Docker containers is the most common example of this situation.
+
+To use PyHeap with a containerized/namespaced process, find the process ID in the host PID namespace. Normally Docker containers have their own PID namespace and the process is running under the PID 1. However, on the host they have another PID. Check the process list with `top` or other process listing tool or use `docker inspect` (in `State`).
+
+Make sure the GDB executable is available in the target mount namespace. If the target is in a Docker container, you most likely need to install GDB inside it (please note this can be done in a running container as well).
+
+If the target process is running under a different user (normal for Docker), you need to use `sudo` with `python3 pyheap_dumper.pyz ...`.
+
+Please keep in mind that the heap file is written by the target process **inside** the container (unless you provide some path mounted to the outside world). You can copy a heap file out with `docker cp` or equivalent for your container system.
+
 ### Browser-Based UI
 
 The browser-based PyHeap UI is a convenient way to explore heap dumps. It can show threads, objects with the most retained heap. It allows exploring individual objects as well.
