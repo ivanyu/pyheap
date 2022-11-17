@@ -15,7 +15,6 @@
 #
 from __future__ import annotations
 
-import base64
 from contextlib import closing
 from typing import Optional
 
@@ -91,14 +90,14 @@ class DumpPythonHeap(gdb.Function):
 
     def invoke(
         self,
-        dumper_code_b64: gdb.Value,
+        code_char_string: gdb.Value,
         heap_file: gdb.Value,
         str_repr_len: gdb.Value,
         progress_file: gdb.Value,
     ) -> int:
         try:
             return self._invoke0(
-                dumper_code_b64, heap_file, str_repr_len, progress_file
+                code_char_string, heap_file, str_repr_len, progress_file
             )
         except:
             import traceback
@@ -108,12 +107,12 @@ class DumpPythonHeap(gdb.Function):
 
     def _invoke0(
         self,
-        dumper_code_b64: gdb.Value,
+        code_char_string: gdb.Value,
         heap_file: gdb.Value,
         str_repr_len: gdb.Value,
         progress_file: gdb.Value,
     ) -> int:
-        dumper_code_b64_str = dumper_code_b64.string()
+        code_char_string_str = code_char_string.string()
         heap_file_str = heap_file.string()
 
         if str_repr_len.type.name != "int":
@@ -133,7 +132,7 @@ class DumpPythonHeap(gdb.Function):
             progress_file=progress_file_str,
         )
         with closing(globals_dict) as globals_dict:
-            self._run_dumper_code(dumper_code_b64_str, globals_dict)
+            self._run_dumper_code(code_char_string_str, globals_dict)
 
             result = globals_dict.get_str("result")
             print(result)
@@ -146,11 +145,8 @@ class DumpPythonHeap(gdb.Function):
                 return 0
 
     def _run_dumper_code(
-        self, dumper_code_b64: str, globals_dict: _GlobalsDict
+        self, code_char_string: str, globals_dict: _GlobalsDict
     ) -> None:
-        code_bytes = base64.b64decode(dumper_code_b64.encode("utf-8"))
-        code_char_string = "".join([hex(b).replace("0x", r"\x") for b in code_bytes])
-
         locals_ptr = "(void*) 0"
         # Doc: https://docs.python.org/3/c-api/veryhigh.html#c.PyRun_File
         Py_file_input = 257  # include/compile.h
