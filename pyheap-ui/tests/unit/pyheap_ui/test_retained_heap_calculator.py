@@ -17,6 +17,7 @@ from pyheap_ui.heap import (
     RetainedHeapParallelCalculator,
     RetainedHeapSequentialCalculator,
     InboundReferences,
+    RetainedHeapExternalCalculator,
 )
 from pyheap_ui.heap_reader import Heap, HeapObject
 from pyheap_ui.heap_types import HeapHeader, HeapThread, HeapThreadFrame, HeapFlags
@@ -33,7 +34,9 @@ def test_minimal() -> None:
     inbound_references = InboundReferences(objects)
     heap_seq = RetainedHeapSequentialCalculator(heap, inbound_references).calculate()
     heap_par = RetainedHeapParallelCalculator(heap, inbound_references).calculate()
+    heap_ext = RetainedHeapExternalCalculator(heap, inbound_references).calculate()
     assert heap_seq == heap_par
+    assert heap_ext == heap_seq
     assert heap_seq.get_for_object(1) == 20
 
 
@@ -45,7 +48,9 @@ def test_self_reference() -> None:
     inbound_references = InboundReferences(objects)
     heap_seq = RetainedHeapSequentialCalculator(heap, inbound_references).calculate()
     heap_par = RetainedHeapParallelCalculator(heap, inbound_references).calculate()
+    heap_ext = RetainedHeapExternalCalculator(heap, inbound_references).calculate()
     assert heap_seq == heap_par
+    assert heap_ext == heap_seq
     assert heap_seq.get_for_object(1) == 20
 
 
@@ -62,7 +67,9 @@ def test_circular_reference() -> None:
     inbound_references = InboundReferences(objects)
     heap_seq = RetainedHeapSequentialCalculator(heap, inbound_references).calculate()
     heap_par = RetainedHeapParallelCalculator(heap, inbound_references).calculate()
+    heap_ext = RetainedHeapExternalCalculator(heap, inbound_references).calculate()
     assert heap_seq == heap_par
+    assert heap_ext == heap_seq
     assert heap_seq.get_for_object(1) == 10 + 20 + 30
     assert heap_seq.get_for_object(2) == 10 + 20 + 30
     assert heap_seq.get_for_object(3) == 10 + 20 + 30
@@ -82,7 +89,9 @@ def test_simple_tree() -> None:
     inbound_references = InboundReferences(objects)
     heap_seq = RetainedHeapSequentialCalculator(heap, inbound_references).calculate()
     heap_par = RetainedHeapParallelCalculator(heap, inbound_references).calculate()
+    heap_ext = RetainedHeapExternalCalculator(heap, inbound_references).calculate()
     assert heap_seq == heap_par
+    assert heap_ext == heap_seq
     assert heap_seq.get_for_object(1) == 10 + 20 + 30 + 40
     assert heap_seq.get_for_object(2) == 20
     assert heap_seq.get_for_object(3) == 30
@@ -116,7 +125,9 @@ def test_multi_level_tree() -> None:
     inbound_references = InboundReferences(objects)
     heap_seq = RetainedHeapSequentialCalculator(heap, inbound_references).calculate()
     heap_par = RetainedHeapParallelCalculator(heap, inbound_references).calculate()
+    heap_ext = RetainedHeapExternalCalculator(heap, inbound_references).calculate()
     assert heap_seq == heap_par
+    assert heap_ext == heap_seq
     assert (
         heap_seq.get_for_object(1)
         == 10 + 20 + 30 + 40 + 50 + 60 + 70 + 80 + 90 + 100 + 110
@@ -149,7 +160,9 @@ def test_long_branch() -> None:
     inbound_references = InboundReferences(objects)
     heap_seq = RetainedHeapSequentialCalculator(heap, inbound_references).calculate()
     heap_par = RetainedHeapParallelCalculator(heap, inbound_references).calculate()
+    heap_ext = RetainedHeapExternalCalculator(heap, inbound_references).calculate()
     assert heap_seq == heap_par
+    assert heap_ext == heap_seq
     assert heap_seq.get_for_object(1) == 10 + 20 + 30 + 40 + 50 + 60 + 70
     assert heap_seq.get_for_object(2) == 20 + 30 + 40 + 50 + 60
     assert heap_seq.get_for_object(3) == 30 + 40 + 50 + 60
@@ -172,7 +185,9 @@ def test_transitive() -> None:
     inbound_references = InboundReferences(objects)
     heap_seq = RetainedHeapSequentialCalculator(heap, inbound_references).calculate()
     heap_par = RetainedHeapParallelCalculator(heap, inbound_references).calculate()
+    heap_ext = RetainedHeapExternalCalculator(heap, inbound_references).calculate()
     assert heap_seq == heap_par
+    assert heap_ext == heap_seq
     assert heap_seq.get_for_object(1) == 10 + 20 + 30
     assert heap_seq.get_for_object(2) == 20
     assert heap_seq.get_for_object(3) == 30
@@ -193,7 +208,9 @@ def test_side_reference() -> None:
     inbound_references = InboundReferences(objects)
     heap_seq = RetainedHeapSequentialCalculator(heap, inbound_references).calculate()
     heap_par = RetainedHeapParallelCalculator(heap, inbound_references).calculate()
+    heap_ext = RetainedHeapExternalCalculator(heap, inbound_references).calculate()
     assert heap_seq == heap_par
+    assert heap_ext == heap_seq
     assert heap_seq.get_for_object(1) == 10 + 20 + 30
     assert heap_seq.get_for_object(2) == 20 + 30
     assert heap_seq.get_for_object(3) == 30
@@ -217,7 +234,9 @@ def test_cross() -> None:
     inbound_references = InboundReferences(objects)
     heap_seq = RetainedHeapSequentialCalculator(heap, inbound_references).calculate()
     heap_par = RetainedHeapParallelCalculator(heap, inbound_references).calculate()
+    heap_ext = RetainedHeapExternalCalculator(heap, inbound_references).calculate()
     assert heap_seq == heap_par
+    assert heap_ext == heap_seq
     assert heap_seq.get_for_object(1) == 10
     assert heap_seq.get_for_object(2) == 20
     assert heap_seq.get_for_object(3) == 30
@@ -244,7 +263,9 @@ def test_complex_1() -> None:
     inbound_references = InboundReferences(objects)
     heap_seq = RetainedHeapSequentialCalculator(heap, inbound_references).calculate()
     heap_par = RetainedHeapParallelCalculator(heap, inbound_references).calculate()
+    heap_ext = RetainedHeapExternalCalculator(heap, inbound_references).calculate()
     assert heap_seq == heap_par
+    assert heap_ext == heap_seq
     assert heap_seq.get_for_object(1) == 10
     assert heap_seq.get_for_object(2) == 20 + 10 + 60 + 70
     assert heap_seq.get_for_object(3) == 30 + (20 + 10 + 60 + 70) + (40 + 50)
@@ -274,7 +295,9 @@ def test_complex_2() -> None:
     inbound_references = InboundReferences(objects)
     heap_seq = RetainedHeapSequentialCalculator(heap, inbound_references).calculate()
     heap_par = RetainedHeapParallelCalculator(heap, inbound_references).calculate()
+    heap_ext = RetainedHeapExternalCalculator(heap, inbound_references).calculate()
     assert heap_seq == heap_par
+    assert heap_ext == heap_seq
     assert heap_seq.get_for_object(1) == 10
     assert heap_seq.get_for_object(2) == 20 + 40
     assert heap_seq.get_for_object(3) == 30
@@ -306,7 +329,9 @@ def test_complex_3() -> None:
     inbound_references = InboundReferences(objects)
     heap_seq = RetainedHeapSequentialCalculator(heap, inbound_references).calculate()
     heap_par = RetainedHeapParallelCalculator(heap, inbound_references).calculate()
+    heap_ext = RetainedHeapExternalCalculator(heap, inbound_references).calculate()
     assert heap_seq == heap_par
+    assert heap_ext == heap_seq
     assert heap_seq.get_for_object(1) == 10 + 20 + 30 + 40 + 50 + 60 + 70
     assert heap_seq.get_for_object(2) == 20 + 40 + 50 + 60
     assert heap_seq.get_for_object(3) == 30
@@ -328,7 +353,9 @@ def test_forest_minimal() -> None:
     inbound_references = InboundReferences(objects)
     heap_seq = RetainedHeapSequentialCalculator(heap, inbound_references).calculate()
     heap_par = RetainedHeapParallelCalculator(heap, inbound_references).calculate()
+    heap_ext = RetainedHeapExternalCalculator(heap, inbound_references).calculate()
     assert heap_seq == heap_par
+    assert heap_ext == heap_seq
     assert heap_seq.get_for_object(1) == 10
     assert heap_seq.get_for_object(2) == 20
     assert heap_seq.get_for_object(3) == 30
@@ -347,7 +374,9 @@ def test_forest_simple() -> None:
     inbound_references = InboundReferences(objects)
     heap_seq = RetainedHeapSequentialCalculator(heap, inbound_references).calculate()
     heap_par = RetainedHeapParallelCalculator(heap, inbound_references).calculate()
+    heap_ext = RetainedHeapExternalCalculator(heap, inbound_references).calculate()
     assert heap_seq == heap_par
+    assert heap_ext == heap_seq
     assert heap_seq.get_for_object(1) == 10 + 20
     assert heap_seq.get_for_object(2) == 20
     assert heap_seq.get_for_object(3) == 30 + 40
@@ -381,7 +410,9 @@ def test_thread_minimal() -> None:
     inbound_references = InboundReferences(objects)
     heap_seq = RetainedHeapSequentialCalculator(heap, inbound_references).calculate()
     heap_par = RetainedHeapParallelCalculator(heap, inbound_references).calculate()
+    heap_ext = RetainedHeapExternalCalculator(heap, inbound_references).calculate()
     assert heap_seq == heap_par
+    assert heap_ext == heap_seq
     assert heap_seq.get_for_thread("thread1") == 10
     assert heap_seq.get_for_thread("thread2") == 20
 
@@ -516,7 +547,9 @@ def test_thread_simple_multi_frame() -> None:
     inbound_references = InboundReferences(objects)
     heap_seq = RetainedHeapSequentialCalculator(heap, inbound_references).calculate()
     heap_par = RetainedHeapParallelCalculator(heap, inbound_references).calculate()
+    heap_ext = RetainedHeapExternalCalculator(heap, inbound_references).calculate()
     assert heap_seq == heap_par
+    assert heap_ext == heap_seq
     assert heap_seq.get_for_thread("thread1") == 10 + 20 + 30
     assert heap_seq.get_for_thread("thread2") == 0
 
@@ -562,7 +595,9 @@ def test_thread_complex_1() -> None:
     inbound_references = InboundReferences(objects)
     heap_seq = RetainedHeapSequentialCalculator(heap, inbound_references).calculate()
     heap_par = RetainedHeapParallelCalculator(heap, inbound_references).calculate()
+    heap_ext = RetainedHeapExternalCalculator(heap, inbound_references).calculate()
     assert heap_seq == heap_par
+    assert heap_ext == heap_seq
     assert heap_seq.get_for_thread("thread1") == 0
     assert heap_seq.get_for_thread("thread2") == 0
 
@@ -578,4 +613,6 @@ def test_calculators_equivalent_on_big_generated() -> None:
     inbound_references = InboundReferences(objects)
     heap_seq = RetainedHeapSequentialCalculator(heap, inbound_references).calculate()
     heap_par = RetainedHeapParallelCalculator(heap, inbound_references).calculate()
+    heap_ext = RetainedHeapExternalCalculator(heap, inbound_references).calculate()
     assert heap_seq == heap_par
+    assert heap_ext == heap_seq

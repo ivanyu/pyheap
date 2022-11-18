@@ -21,8 +21,10 @@ import json
 import logging
 import os
 import random
+import subprocess
 import sys
 import time
+from copy import copy
 from multiprocessing import Pool
 from pathlib import Path
 from typing import Mapping, Set, Dict, Collection, List, Tuple, Optional
@@ -135,7 +137,7 @@ class RetainedHeapCalculator:
 
         self._find_strict_subtrees()
         self._calculate_for_all_objects()
-        self._calculate_for_all_threads()
+        # self._calculate_for_all_threads()
         self._calculated = True
         return RetainedHeap(
             object_retained_heap=self._object_retained_heap,
@@ -354,6 +356,95 @@ class RetainedHeapParallelCalculator(RetainedHeapCalculator):
         return addr, self._retained_heap_for_object(addr=addr, use_subtrees=False)
 
 
+class RetainedHeapExternalCalculator:
+    def __init__(self, heap: Heap, inbound_references: InboundReferences) -> None:
+        self._heap = heap
+        self._inbound_references = inbound_references
+
+    def calculate(self) -> RetainedHeap:
+        LOG.info(
+            "Calculating retained heap for objects and threads with external process"
+        )
+        global_start = time.monotonic()
+
+        r = subprocess.Popen(
+            [
+                "target/release/retained_heap_calculator"
+            ],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+        )
+
+        r.stdin.write("objects\n")
+        for addr, obj in self._heap.objects.items():
+            r.stdin.write(str(addr))
+            r.stdin.write("\n")
+            r.stdin.write(str(obj.size))
+            r.stdin.write("\n")
+            r.stdin.write(" ".join(str(r) for r in obj.referents))
+            r.stdin.write("\n")
+            r.stdin.write(" ".join(str(r) for r in self._inbound_references[addr]))
+            r.stdin.write("\n")
+        r.stdin.write("threads\n")
+        for thread in self._heap.threads:
+            r.stdin.write(thread.name)
+            r.stdin.write("\n")
+            r.stdin.write(" ".join(str(r) for r in thread.locals))
+            r.stdin.write("\n")
+        r.stdin.close()
+        after_input_start = time.monotonic()
+
+        stdout = r.stdout.read()
+        r.stdout.close()
+        stderr = r.stderr.read()
+        r.stderr.close()
+        r.wait()
+        if r.returncode != 0:
+            raise ValueError(f"Error from external retained heap calculator: {stderr}")
+
+        print(stderr)
+
+        lines = stdout.split("\n")
+        if lines[-1] == "":
+            del lines[-1]
+        if lines[0] != "objects":
+            raise ValueError(f"Invalid output of external retained heap calculator")
+
+        object_retained_heap: Dict[Address, int] = {}
+        i = 1
+        while i < len(lines):
+            line = lines[i]
+            i += 1
+            if line == "threads":
+                break
+            addr_str, ret_heap_str = line.split(" ")
+            addr = int(addr_str)
+            ret_heap = int(ret_heap_str)
+            object_retained_heap[addr] = ret_heap
+
+        thread_retained_heap: Dict[str, int] = {}
+        while i < len(lines):
+            line = lines[i]
+            i += 1
+            thread, ret_heap_str = line.split(" ")
+            ret_heap = int(ret_heap_str)
+            thread_retained_heap[thread] = ret_heap
+
+        LOG.info(
+            "Calculating retained heap done, took %.2f s, after input %.2f s",
+            time.monotonic() - global_start,
+            time.monotonic() - after_input_start,
+        )
+
+        return RetainedHeap(
+            object_retained_heap=object_retained_heap,
+            thread_retained_heap=thread_retained_heap,
+        )
+
+
 class RetainedHeapCache:
     VERSION = 1  # change when the algorithm changes
 
@@ -398,11 +489,13 @@ def provide_retained_heap_with_caching(
     if retained_heap is not None:
         return retained_heap
 
-    parallel_retained_heap_calculation = False
-    if parallel_retained_heap_calculation:
-        calculator = RetainedHeapParallelCalculator(heap, inbound_references)
-    else:
-        calculator = RetainedHeapSequentialCalculator(heap, inbound_references)
+    # parallel_retained_heap_calculation = False
+    # if parallel_retained_heap_calculation:
+    #     calculator = RetainedHeapParallelCalculator(heap, inbound_references)
+    # else:
+    #     calculator = RetainedHeapSequentialCalculator(heap, inbound_references)
+    # calculator = RetainedHeapExternalCalculator(heap, inbound_references)
+    calculator = RetainedHeapSequentialCalculator(heap, inbound_references)
     retained_heap = calculator.calculate()
 
     cache.store(retained_heap)
