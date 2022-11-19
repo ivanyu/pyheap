@@ -183,14 +183,14 @@ class RetainedHeapCalculator:
     def _calculate_for_all_threads(self) -> None:
         LOG.info("Calculating retained heap for threads sequentially")
         for thread_to_delete in self._heap.threads:
-            inbound_reference_view: Dict[Address, Set[Address]] = {}
+            inbound_reference_view: Dict[Address, int] = {}
             for obj in thread_to_delete.locals:
-                inbound_reference_view[obj] = set(self._inbound_references[obj])
-                for thread_n, thread in enumerate(self._heap.threads):
+                inbound_reference_view[obj] = len(self._inbound_references[obj])
+                for thread in self._heap.threads:
                     if thread == thread_to_delete:
                         continue
                     if obj in thread.locals:
-                        inbound_reference_view[obj].add(-thread_n)
+                        inbound_reference_view[obj] += 1
 
             front = list(thread_to_delete.locals)
             self._thread_retained_heap[thread_to_delete.name] = self._retained_heap0(
@@ -200,9 +200,9 @@ class RetainedHeapCalculator:
             )
 
     def _retained_heap_for_object(self, *, addr: Address, use_subtrees: bool) -> int:
-        inbound_reference_view: Dict[Address, Set[Address]] = {}
+        inbound_reference_view: Dict[Address, int] = {}
         # Imitate deletion of the initial address.
-        inbound_reference_view[addr] = set()
+        inbound_reference_view[addr] = 0
         front = [addr]
         return self._retained_heap0(
             inbound_reference_view=inbound_reference_view,
@@ -213,7 +213,7 @@ class RetainedHeapCalculator:
     def _retained_heap0(
         self,
         *,
-        inbound_reference_view: Dict[Address, Set[Address]],
+        inbound_reference_view: Dict[Address, int],
         front: List[int],
         use_subtrees: bool,
     ) -> int:
@@ -221,7 +221,7 @@ class RetainedHeapCalculator:
         deleted: Set[Address] = set()
 
         while True:
-            front.sort(key=lambda x: len(inbound_reference_view[x]), reverse=True)
+            front.sort(key=lambda x: inbound_reference_view[x], reverse=True)
 
             retained, deletion_happened = self._retained_heap_calculation_iteration(
                 front, inbound_reference_view, deleted, use_subtrees
@@ -236,7 +236,7 @@ class RetainedHeapCalculator:
     def _retained_heap_calculation_iteration(
         self,
         front: List[Address],
-        inbound_reference_view: Dict[Address, Set[Address]],
+        inbound_reference_view: Dict[Address, int],
         deleted: Set[Address],
         use_subtrees: bool,
     ) -> Tuple[int, bool]:
@@ -245,7 +245,7 @@ class RetainedHeapCalculator:
         for i in range(len(front) - 1, -1, -1):
             current = front[i]
 
-            if inbound_reference_view[current]:
+            if inbound_reference_view[current] > 0:
                 break
             if current in deleted:
                 continue
@@ -271,20 +271,15 @@ class RetainedHeapCalculator:
         current: Address,
         deleted: Set[Address],
         to_be_added_to_front: Set[Address],
-        inbound_reference_view: Dict[Address, Set[Address]],
+        inbound_reference_view: Dict[Address, int],
     ) -> None:
         for r in to_be_added_to_front:
             if r not in inbound_reference_view:
-                inbound_reference_view[r] = self._inbound_references[r] - deleted
+                inbound_reference_view[r] = (
+                    len(self._inbound_references[r]) - 1
+                )  # -1 is newly deleted
             else:
-                # This extra check is not masking some mistake in the retained heap algorithm.
-                # Normally we "delete" only one root object. It refers to some other objects,
-                # which don't have the inbound reference view defined yet. They are processed
-                # by the other branch of this if-else. In this case, the check is not needed.
-                # However, when we calculate a thread's retained heap, we "delete" multiple root objects,
-                # which may refer to one another. Hence, this extra check.
-                if current in inbound_reference_view[r]:
-                    inbound_reference_view[r].remove(current)
+                inbound_reference_view[r] -= 1
 
 
 class RetainedHeapSequentialCalculator(RetainedHeapCalculator):
@@ -403,7 +398,7 @@ def provide_retained_heap_with_caching(
     if retained_heap is not None:
         return retained_heap
 
-    parallel_retained_heap_calculation = True
+    parallel_retained_heap_calculation = False
     if parallel_retained_heap_calculation:
         calculator = RetainedHeapParallelCalculator(heap, inbound_references)
     else:
