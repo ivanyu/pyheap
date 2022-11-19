@@ -182,21 +182,43 @@ class RetainedHeapCalculator:
 
     def _calculate_for_all_threads(self) -> None:
         LOG.info("Calculating retained heap for threads sequentially")
-        for thread in self._heap.threads:
-            self._thread_retained_heap[thread.name] = self._retained_heap0(
-                addrs=thread.locals, use_subtrees=False
+        for thread_to_delete in self._heap.threads:
+            inbound_reference_view: Dict[Address, Set[Address]] = {}
+            for obj in thread_to_delete.locals:
+                inbound_reference_view[obj] = set(self._inbound_references[obj])
+                for thread_n, thread in enumerate(self._heap.threads):
+                    if thread == thread_to_delete:
+                        continue
+                    if obj in thread.locals:
+                        inbound_reference_view[obj].add(-thread_n)
+
+            front = list(thread_to_delete.locals)
+            self._thread_retained_heap[thread_to_delete.name] = self._retained_heap0(
+                inbound_reference_view=inbound_reference_view,
+                front=front,
+                use_subtrees=False,
             )
 
-    def _retained_heap0(self, *, addrs: Collection[Address], use_subtrees: bool) -> int:
+    def _retained_heap_for_object(self, *, addr: Address, use_subtrees: bool) -> int:
+        inbound_reference_view: Dict[Address, Set[Address]] = {}
+        # Imitate deletion of the initial address.
+        inbound_reference_view[addr] = set()
+        front = [addr]
+        return self._retained_heap0(
+            inbound_reference_view=inbound_reference_view,
+            front=front,
+            use_subtrees=use_subtrees,
+        )
+
+    def _retained_heap0(
+        self,
+        *,
+        inbound_reference_view: Dict[Address, Set[Address]],
+        front: List[int],
+        use_subtrees: bool,
+    ) -> int:
         result = 0
         deleted: Set[Address] = set()
-
-        inbound_reference_view: Dict[Address, Set[Address]] = {}
-        # Imitate deletion of the initial addresses.
-        for a in addrs:
-            inbound_reference_view[a] = set()
-
-        front = list(addrs)
 
         while True:
             front.sort(key=lambda x: len(inbound_reference_view[x]), reverse=True)
@@ -290,8 +312,8 @@ class RetainedHeapSequentialCalculator(RetainedHeapCalculator):
                     step_duration,
                     eta.eta(),
                 )
-            self._object_retained_heap[addr] = self._retained_heap0(
-                addrs=[addr], use_subtrees=True
+            self._object_retained_heap[addr] = self._retained_heap_for_object(
+                addr=addr, use_subtrees=True
             )
 
         LOG.info(
@@ -334,7 +356,7 @@ class RetainedHeapParallelCalculator(RetainedHeapCalculator):
         )
 
     def _work(self, addr: Address) -> Tuple[Address, int]:
-        return addr, self._retained_heap0(addrs=[addr], use_subtrees=False)
+        return addr, self._retained_heap_for_object(addr=addr, use_subtrees=False)
 
 
 class RetainedHeapCache:

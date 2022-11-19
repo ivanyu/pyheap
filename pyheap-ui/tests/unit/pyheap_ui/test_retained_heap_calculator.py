@@ -386,14 +386,102 @@ def test_thread_minimal() -> None:
     assert heap_seq.get_for_thread("thread2") == 20
 
 
+def test_thread_simple() -> None:
+    # thread1 -> 1 --> 2
+    #             \    ^
+    #              \-> 3
+    objects = {
+        1: HeapObject(address=1, type=0, size=10, referents={2, 3}),
+        2: HeapObject(address=2, type=0, size=20, referents=set()),
+        3: HeapObject(address=3, type=0, size=30, referents={2}),
+    }
+
+    threads = [
+        HeapThread(
+            name="thread1",
+            is_alive=True,
+            is_daemon=False,
+            stack_trace=[HeapThreadFrame("", 0, "", locals={"a": 1})],
+        ),
+    ]
+
+    heap = Heap(_HEADER, threads=threads, objects=objects, types={})
+    inbound_references = InboundReferences(objects)
+    heap_seq = RetainedHeapSequentialCalculator(heap, inbound_references).calculate()
+    heap_par = RetainedHeapParallelCalculator(heap, inbound_references).calculate()
+    assert heap_seq == heap_par
+    assert heap_seq.get_for_thread("thread1") == 10 + 20 + 30
+
+
+def test_thread_two_threads_cross() -> None:
+    #        /-> 1
+    # thread1 -> 2 <- thread2
+    #            3 <-/
+    objects = {
+        1: HeapObject(address=1, type=0, size=10, referents=set()),
+        2: HeapObject(address=2, type=0, size=20, referents=set()),
+        3: HeapObject(address=3, type=0, size=30, referents=set()),
+    }
+
+    threads = [
+        HeapThread(
+            name="thread1",
+            is_alive=True,
+            is_daemon=False,
+            stack_trace=[HeapThreadFrame("", 0, "", locals={"a": 1, "b": 2})],
+        ),
+        HeapThread(
+            name="thread2",
+            is_alive=True,
+            is_daemon=False,
+            stack_trace=[HeapThreadFrame("", 0, "", locals={"b": 2, "c": 3})],
+        ),
+    ]
+
+    heap = Heap(_HEADER, threads=threads, objects=objects, types={})
+    inbound_references = InboundReferences(objects)
+    heap_seq = RetainedHeapSequentialCalculator(heap, inbound_references).calculate()
+    heap_par = RetainedHeapParallelCalculator(heap, inbound_references).calculate()
+    assert heap_seq == heap_par
+    assert heap_seq.get_for_thread("thread1") == 10
+    assert heap_seq.get_for_thread("thread2") == 30
+
+
+def test_thread_and_object_cross() -> None:
+    #        /-> 1
+    # thread1 -> 2 <- 3
+    objects = {
+        1: HeapObject(address=1, type=0, size=10, referents=set()),
+        2: HeapObject(address=2, type=0, size=20, referents=set()),
+        3: HeapObject(address=3, type=0, size=30, referents={2}),
+    }
+
+    threads = [
+        HeapThread(
+            name="thread1",
+            is_alive=True,
+            is_daemon=False,
+            stack_trace=[HeapThreadFrame("", 0, "", locals={"a": 1, "b": 2})],
+        ),
+    ]
+
+    heap = Heap(_HEADER, threads=threads, objects=objects, types={})
+    inbound_references = InboundReferences(objects)
+    heap_seq = RetainedHeapSequentialCalculator(heap, inbound_references).calculate()
+    heap_par = RetainedHeapParallelCalculator(heap, inbound_references).calculate()
+    assert heap_seq == heap_par
+    assert heap_seq.get_for_thread("thread1") == 10
+
+
 def test_thread_simple_multi_frame() -> None:
-    # thread1 -> 1 -> 2
-    #            |
-    #            +--> 3
+    # thread1 (all locals): 1 -> 2
+    #                       |
+    #                       +--> 3
     #
-    # thread2 -> 4 -> 5 -> 6
-    #            ^         |
-    #            +---------+
+    # thread2 (all locals): -> 4 -> 5 -> 6
+    #                          ^         |
+    #                          +---------+
+    # All objects in thread 2 remain due to the circular reference.
     objects = {
         1: HeapObject(address=1, type=0, size=10, referents={2, 3}),
         2: HeapObject(address=2, type=0, size=20, referents=set()),
@@ -430,7 +518,7 @@ def test_thread_simple_multi_frame() -> None:
     heap_par = RetainedHeapParallelCalculator(heap, inbound_references).calculate()
     assert heap_seq == heap_par
     assert heap_seq.get_for_thread("thread1") == 10 + 20 + 30
-    assert heap_seq.get_for_thread("thread2") == 40 + 50 + 60
+    assert heap_seq.get_for_thread("thread2") == 0
 
 
 def test_thread_complex_1() -> None:
@@ -444,6 +532,7 @@ def test_thread_complex_1() -> None:
     #          \-> 2
     # thread 2 --> 5
     #          \-> 7
+    # All objects in both threads remain due to the circular references.
     objects = {
         1: HeapObject(address=1, type=0, size=10, referents={3}),
         2: HeapObject(address=2, type=0, size=20, referents={1, 6}),
@@ -474,8 +563,8 @@ def test_thread_complex_1() -> None:
     heap_seq = RetainedHeapSequentialCalculator(heap, inbound_references).calculate()
     heap_par = RetainedHeapParallelCalculator(heap, inbound_references).calculate()
     assert heap_seq == heap_par
-    assert heap_seq.get_for_thread("thread1") == 10 + 20 + 60 + 70
-    assert heap_seq.get_for_thread("thread2") == 50 + 70
+    assert heap_seq.get_for_thread("thread1") == 0
+    assert heap_seq.get_for_thread("thread2") == 0
 
 
 def test_calculators_equivalent_on_big_generated() -> None:
