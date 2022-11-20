@@ -59,11 +59,16 @@ The browser-based PyHeap UI is a convenient way to explore heap dumps. It can sh
 
 ![Thread view](doc/screenshot1.png)
 
+<details>
+  <summary>More screenshots</summary>
+
 ![Heap view](doc/screenshot2.png)
 
 ![Object view - Attributes](doc/screenshot3.png)
 
 ![Object view - Referents](doc/screenshot4.png)
+
+</details>
 
 #### Running with Docker
 
@@ -95,9 +100,12 @@ and open [http://127.0.0.1:5000](http://127.0.0.1:5000).
 
 ### Command-Line Heap Analyzer
 
+<details>
+  <summary>In case you cannot use the browser-based UI</summary>
+
 Analyze the heap with the `analyzer` module:
 ```bash
-$ PYTHONPATH=src -m analyzer retained-heap --file heap.pyheap
+$ PYTHONPATH=src poetry run python -m analyzer retained-heap --file heap.pyheap
 
 [2022-09-07 09:40:46,594] INFO Loading file heap.json.gz
 [2022-09-07 09:40:46,633] INFO Loading file finished in 0.04 seconds
@@ -129,6 +137,7 @@ Address         | Object type     | Retained heap size | String representation
 ...
 ```
 (in the repo root directory).
+</details>
 
 ## How It Works
 
