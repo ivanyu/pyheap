@@ -66,7 +66,7 @@
 
 <div id="object-panel">
     <p><strong>Address:</strong> {{ address }}</p>
-    <p><strong>Type:</strong> <code>{{ type }}</code></p>
+    <p><strong>Type:</strong> {{ render_object_link(type_address) }} <code>{{ type }}</code></p>
     <p><strong>Size:</strong> {{ obj.size | big_number | safe }}&nbsp;B</p>
     <p><strong>Retained heap:</strong> {{ retained_heap.get_for_object(address) | big_number | safe }}&nbsp;B</p>
     <p><strong>String representation:</strong> <span class="inline-object-str text-muted">
@@ -137,11 +137,11 @@
             </div>
         </div>
 
-        {% if well_known_type is not none %}
+        {% if well_known_container_type is not none %}
         <div class="accordion-item">
             <h2 class="accordion-header" id="panelElements">
                 <button class="accordion-button" type="button" data-bs-toggle="collapse"
-                        data-bs-target="#panelElements-collapse" aria-expanded="false"
+                        data-bs-target="#panelElements-collapse" aria-expanded="true"
                         aria-controls="panelElements-collapse">
                     Elements
                 </button>
@@ -150,16 +150,38 @@
                  aria-labelledby="panelElements">
                 <div class="accordion-body text-truncate overflow-scroll">
                     <ul class="list-unstyled">
-                        {% if well_known_type == "dict" %}
+                        {% if well_known_container_type == "dict" %}
                             {% for key, value in obj.content.items() %}
                                 <li>{{ render_element(key) }}&nbsp;&nbsp;:&nbsp;&nbsp;{{ render_element(value) }}</li>
                             {% endfor %}
                         {% endif %}
-                        {% if well_known_type in ["list", "set", "tuple"] %}
+                        {% if well_known_container_type in ["list", "set", "tuple"] %}
                             {% for el in obj.content %}
                                 <li>{{ render_element(el) }}</li>
                             {% endfor %}
                         {% endif %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if is_type_type %}
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="panelInstances">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#panelInstances-collapse" aria-expanded="false"
+                        aria-controls="panelInstances-collapse">
+                    Type instances
+                </button>
+            </h2>
+            <div id="panelInstances-collapse" class="accordion-collapse collapse"
+                 aria-labelledby="panelInstances">
+                <div class="accordion-body text-truncate overflow-scroll">
+                    <ul class="list-unstyled">
+                        {% for addr in type_instances %}
+                            <li>{{ render_element(addr) }}
+                        {% endfor %}
                     </ul>
                 </div>
             </div>

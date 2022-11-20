@@ -429,7 +429,21 @@ def _check_header(heap: Heap, dump_str_repr: bool) -> None:
     assert (datetime.now(timezone.utc) - x).total_seconds() < 5 * 60
     assert heap.header.flags.with_str_repr is dump_str_repr
 
-    for type_name in ["dict", "set", "list", "tuple"]:
+    for type_name in [
+        "dict",
+        "set",
+        "list",
+        "tuple",
+        "str",
+        "bytes",
+        "bytearray",
+        "int",
+        "bool",
+        "float",
+        "object",
+        "type",
+        "NoneType",
+    ]:
         dict_type_addr = heap.header.well_known_types[type_name]
         assert heap.types[dict_type_addr] == type_name
         if dump_str_repr:

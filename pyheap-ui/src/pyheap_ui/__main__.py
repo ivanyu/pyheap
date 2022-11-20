@@ -15,16 +15,17 @@
 #
 import argparse
 import dataclasses
+import functools
 import logging
 import mmap
 import os
 import time
 import math
-from typing import Optional, Any
+from typing import Optional, Any, Dict
 from flask import Flask, render_template, abort, request
 from flask.json.provider import DefaultJSONProvider
 
-from .heap_types import Heap, JsonObject
+from .heap_types import Heap, JsonObject, Address
 from .heap_reader import HeapReader
 from .heap import (
     provide_retained_heap_with_caching,
@@ -109,20 +110,25 @@ def objects(address: int) -> str:
 
     obj = heap.objects[address]
 
-    well_known_type = next(
-        (k for k, v in heap.header.well_known_types.items() if v == obj.type), None
-    )
-
+    is_type_type = obj.type == heap.header.well_known_types.get("type")
+    type_instances = None
+    if is_type_type:
+        type_instances = [
+            addr for addr, obj in heap.objects.items() if obj.type == address
+        ]
     return render_template(
         "objects.html",
         tab_object_active=True,
         address=address,
         obj=obj,
+        type_address=obj.type,
         type=heap.types[obj.type],
         objects=heap.objects,
         types=heap.types,
         retained_heap=retained_heap,
-        well_known_type=well_known_type,
+        well_known_container_type=well_known_container_types().get(obj.type),
+        is_type_type=is_type_type,
+        type_instances=type_instances,
     )
 
 
@@ -157,6 +163,16 @@ def big_number(size: int) -> str:
         chunks.append(size_str[left:i])
     chunks.reverse()
     return "&nbsp;".join(chunks)
+
+
+@functools.lru_cache
+def well_known_container_types() -> Dict[Address, str]:
+    return {
+        heap.header.well_known_types["dict"]: "dict",
+        heap.header.well_known_types["list"]: "list",
+        heap.header.well_known_types["set"]: "set",
+        heap.header.well_known_types["tuple"]: "tuple",
+    }
 
 
 if __name__ == "__main__":

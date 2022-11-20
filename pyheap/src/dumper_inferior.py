@@ -85,7 +85,7 @@ class _HeapWriter:
         if with_str_repr:
             self._flags = self._flags | self._FLAG_WITH_STR_REPR
 
-    def write_header(self) -> None:
+    def write_header(self) -> List[Type]:
         self._write_magic()
 
         self.write_unsigned_int(self._VERSION)
@@ -95,19 +95,29 @@ class _HeapWriter:
 
         self.write_unsigned_long(self._flags)
 
-        self._write_well_known_types()
+        return self._write_well_known_types()
 
-    def _write_well_known_types(self) -> None:
+    def _write_well_known_types(self) -> List[Type]:
         well_known_types = {
-            "list": id(list),
-            "tuple": id(tuple),
-            "dict": id(dict),
-            "set": id(set),
+            "list": list,
+            "tuple": tuple,
+            "dict": dict,
+            "set": set,
+            "str": str,
+            "bytes": bytes,
+            "bytearray": bytearray,
+            "int": int,
+            "bool": bool,
+            "float": float,
+            "object": object,
+            "type": type,
+            "NoneType": type(None),
         }
         self.write_unsigned_int(len(well_known_types))
-        for type_name, type_addr in well_known_types.items():
+        for type_name, type_ in well_known_types.items():
             self.write_long_string(type_name)
-            self.write_unsigned_long(type_addr)
+            self.write_unsigned_long(id(type_))
+        return list(well_known_types.values())
 
     def write_footer(self) -> None:
         self._write_magic()
@@ -172,7 +182,7 @@ def _dump_heap() -> str:
     gc_tracked_objects = _get_gc_tracked_objects()
     with open(heap_file, "wb") as f:
         writer = _HeapWriter(f=f, with_str_repr=str_repr_len >= 0)
-        writer.write_header()
+        well_known_types = writer.write_header()
 
         messages = []
         all_locals = _write_threads_and_return_locals(writer, messages)
@@ -180,10 +190,14 @@ def _dump_heap() -> str:
         frequent_attributes = _write_frequent_attributes(writer)
 
         attribute_errors_total = 0
-        common_types, objects_to_visit, attribute_errors = _write_common_types(
-            writer, frequent_attributes
-        )
+        (
+            common_types,
+            objects_to_visit,
+            attribute_errors,
+        ) = _write_common_type_attributes(writer, frequent_attributes)
         attribute_errors_total += attribute_errors
+
+        objects_to_visit.extend(well_known_types)
 
         with closing(ProgressReporter(progress_file)) as progress_reporter:
             types, visited, attribute_errors = _write_objects_and_return_types(
@@ -201,6 +215,8 @@ def _dump_heap() -> str:
         if attribute_errors_total > 0:
             messages.append(f"Errors getting attribute: {attribute_errors_total}")
 
+        for t in well_known_types:
+            types[id(t)] = t.__name__
         writer.write_unsigned_int(len(types))
         for addr, type_name in types.items():
             writer.write_unsigned_long(addr)
@@ -228,7 +244,7 @@ def _get_gc_tracked_objects() -> List[Any]:
     invisible_objects.add(id(_dump_heap))
     invisible_objects.add(id(_write_objects_and_return_types))
     invisible_objects.add(id(_write_frequent_attributes))
-    invisible_objects.add(id(_write_common_types))
+    invisible_objects.add(id(_write_common_type_attributes))
     invisible_objects.add(id(_write_threads_and_return_locals))
     invisible_objects.add(id(_shadowed_dict_orig))
     invisible_objects.add(id(_check_class_orig))
@@ -422,7 +438,7 @@ def _write_frequent_attributes(writer: _HeapWriter) -> Dict[str, int]:
     return result
 
 
-def _write_common_types(
+def _write_common_type_attributes(
     writer: _HeapWriter, frequent_attributes: Dict[str, int]
 ) -> Tuple[Set[Type], List[Any], int]:
     """Write attributes of "common" types.

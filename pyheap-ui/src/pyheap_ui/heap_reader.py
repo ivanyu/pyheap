@@ -189,7 +189,12 @@ class HeapReader:
         type_ = self._read(Address)
         size_ = self._read(UnsignedInt)
 
-        is_well_known_container_type = type_ in self._header.well_known_types.values()
+        is_well_known_container_type = type_ in {
+            self._header.well_known_types["dict"],
+            self._header.well_known_types["list"],
+            self._header.well_known_types["set"],
+            self._header.well_known_types["tuple"],
+        }
 
         content: ObjectContent = None
         extra_referents: Set[Address] = set()
