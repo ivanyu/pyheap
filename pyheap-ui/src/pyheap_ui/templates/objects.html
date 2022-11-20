@@ -137,7 +137,7 @@
             </div>
         </div>
 
-        {% if well_known_type is not none %}
+        {% if well_known_container_type is not none %}
         <div class="accordion-item">
             <h2 class="accordion-header" id="panelElements">
                 <button class="accordion-button" type="button" data-bs-toggle="collapse"
@@ -150,12 +150,12 @@
                  aria-labelledby="panelElements">
                 <div class="accordion-body text-truncate overflow-scroll">
                     <ul class="list-unstyled">
-                        {% if well_known_type == "dict" %}
+                        {% if well_known_container_type == "dict" %}
                             {% for key, value in obj.content.items() %}
                                 <li>{{ render_element(key) }}&nbsp;&nbsp;:&nbsp;&nbsp;{{ render_element(value) }}</li>
                             {% endfor %}
                         {% endif %}
-                        {% if well_known_type in ["list", "set", "tuple"] %}
+                        {% if well_known_container_type in ["list", "set", "tuple"] %}
                             {% for el in obj.content %}
                                 <li>{{ render_element(el) }}</li>
                             {% endfor %}
