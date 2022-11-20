@@ -25,7 +25,7 @@ import sys
 import time
 from multiprocessing import Pool
 from pathlib import Path
-from typing import Mapping, Set, Dict, Collection, List, Tuple, Optional
+from typing import Mapping, Set, Dict, List, Tuple, Optional
 
 from pyheap_ui.heap_reader import Heap, HeapObject
 from pyheap_ui.heap_types import ObjectDict, ThreadName, Address, JsonObject
@@ -260,7 +260,7 @@ class RetainedHeapCalculator:
                 retained += self._heap.objects[current].size
                 to_be_added_to_front = self._heap.objects[current].referents - deleted
                 self._update_inbound_references_view(
-                    current, deleted, to_be_added_to_front, inbound_reference_view
+                    to_be_added_to_front, inbound_reference_view
                 )
                 front.extend(to_be_added_to_front)
 
@@ -268,8 +268,6 @@ class RetainedHeapCalculator:
 
     def _update_inbound_references_view(
         self,
-        current: Address,
-        deleted: Set[Address],
         to_be_added_to_front: Set[Address],
         inbound_reference_view: Dict[Address, int],
     ) -> None:
