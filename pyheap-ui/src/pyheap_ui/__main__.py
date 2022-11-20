@@ -110,6 +110,12 @@ def objects(address: int) -> str:
 
     obj = heap.objects[address]
 
+    is_type_type = obj.type == heap.header.well_known_types.get("type")
+    type_instances = None
+    if is_type_type:
+        type_instances = [
+            addr for addr, obj in heap.objects.items() if obj.type == address
+        ]
     return render_template(
         "objects.html",
         tab_object_active=True,
@@ -121,6 +127,8 @@ def objects(address: int) -> str:
         types=heap.types,
         retained_heap=retained_heap,
         well_known_container_type=well_known_container_types().get(obj.type),
+        is_type_type=is_type_type,
+        type_instances=type_instances,
     )
 
 
