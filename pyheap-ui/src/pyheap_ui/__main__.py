@@ -15,6 +15,7 @@
 #
 import argparse
 import dataclasses
+import logging
 import mmap
 import os
 import time
@@ -51,6 +52,10 @@ class MyFlask(Flask):
 
 
 app = MyFlask(__name__)
+app.logger.setLevel(logging.INFO)
+if app.logger.handlers:
+    formatter = logging.Formatter("[%(asctime)s] %(levelname)s %(message)s")
+    app.logger.handlers[0].setFormatter(formatter)
 
 heap: Optional[Heap] = None
 inbound_references: Optional[InboundReferences] = None
@@ -147,18 +152,21 @@ if __name__ == "__main__":
     parser.add_argument("--file", "-f", type=str, required=True, help="heap file name")
     args = parser.parse_args()
 
-    start = time.monotonic()
-    app.logger.info("Loading file %s", args.file)
-    with open(args.file, "rb") as f:
-        mm = mmap.mmap(f.fileno(), length=0, access=mmap.ACCESS_READ)
-        reader = HeapReader(mm)
-        heap = reader.read()
-    app.logger.info("Loading file finished in %.2f seconds", time.monotonic() - start)
+    if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        start = time.monotonic()
+        app.logger.info("Loading file %s", args.file)
+        with open(args.file, "rb") as f:
+            mm = mmap.mmap(f.fileno(), length=0, access=mmap.ACCESS_READ)
+            reader = HeapReader(mm)
+            heap = reader.read()
+        app.logger.info(
+            "Loading file finished in %.2f seconds", time.monotonic() - start
+        )
 
-    inbound_references = InboundReferences(heap.objects)
-    retained_heap = provide_retained_heap_with_caching(
-        args.file, heap, inbound_references
-    )
+        inbound_references = InboundReferences(heap.objects)
+        retained_heap = provide_retained_heap_with_caching(
+            args.file, heap, inbound_references
+        )
 
     host = os.environ.get("FLASK_SERVER_NAME")
     app.run(debug=True, host=host)
