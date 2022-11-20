@@ -66,7 +66,7 @@
 
 <div id="object-panel">
     <p><strong>Address:</strong> {{ address }}</p>
-    <p><strong>Type:</strong> <code>{{ type }}</code></p>
+    <p><strong>Type:</strong> {{ render_object_link(type_address) }} <code>{{ type }}</code></p>
     <p><strong>Size:</strong> {{ obj.size | big_number | safe }}&nbsp;B</p>
     <p><strong>Retained heap:</strong> {{ retained_heap.get_for_object(address) | big_number | safe }}&nbsp;B</p>
     <p><strong>String representation:</strong> <span class="inline-object-str text-muted">

@@ -118,6 +118,7 @@ def objects(address: int) -> str:
         tab_object_active=True,
         address=address,
         obj=obj,
+        type_address=obj.type,
         type=heap.types[obj.type],
         objects=heap.objects,
         types=heap.types,
