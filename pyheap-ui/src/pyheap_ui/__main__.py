@@ -142,6 +142,18 @@ def objects_batch() -> JsonObject:
     return {"objects": result}
 
 
+@app.template_filter()
+def big_number(size: int) -> str:
+    size_str = str(size)
+    max_chunk_size = 3
+    chunks = []
+    for i in range(len(size_str), 0, -max_chunk_size):
+        left = max(0, i - max_chunk_size)
+        chunks.append(size_str[left:i])
+    chunks.reverse()
+    return "&nbsp;".join(chunks)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Heap viewer UI.", allow_abbrev=False)
     parser.add_argument("--file", "-f", type=str, required=True, help="heap file name")

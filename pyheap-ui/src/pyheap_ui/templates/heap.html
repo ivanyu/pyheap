@@ -52,8 +52,8 @@
 
 <div id="heap-panel">
     <div>
-        <p><strong>Total heap size:</strong> {{ total_heap_size }} B</p>
-        <p><strong>Objects:</strong> {{ object_count }}</p>
+        <p><strong>Total heap size:</strong> {{ total_heap_size | big_number | safe }}&nbsp;B</p>
+        <p><strong>Objects:</strong> {{ object_count | big_number | safe }}</p>
     </div>
 
     {{ render_pagination() }}
@@ -75,7 +75,7 @@
         <tr>
             <td><a href="/objects/{{ addr }}" title="Address: {{ addr }}"><i class="bi bi-link-45deg"></i></a></td>
             <td><code>{{ types[obj.type] }}</code></td>
-            <td>{{ retained_heap_size }}</td>
+            <td>{{ retained_heap_size | big_number | safe }}</td>
             {% if with_str_repr %}
                 {% if obj.str_repr|length > 255 %}
                 <td><span>{{ obj.str_repr|truncate(255, end="") }} <a title="Expand" onclick="toggleFullText(event)" href="#">...</a></span>

@@ -49,7 +49,7 @@
         {% endif %}
     </p>
 
-    <p><strong>Retained heap:</strong> {{ retained_heap.get_for_thread(thread.name) }} B</p>
+    <p><strong>Retained heap:</strong> {{ retained_heap.get_for_thread(thread.name) | big_number | safe }}&nbsp;B</p>
 
     <ul class="list-group ps-2">
         {% for frame in thread.stack_trace %}
@@ -74,7 +74,7 @@
 
                             <span title="Retained heap, B" class="text-muted">
                                 [<i class="bi bi-lock"></i>
-                                {{ retained_heap.get_for_object(local_addr) }}]
+                                {{ retained_heap.get_for_object(local_addr) | big_number | safe }}]
                             </span>
 
                             {% if objects[local_addr].str_repr is not none %}

@@ -30,6 +30,18 @@ function escapeHtml(string) {
     return String(string).replace(/[&<>"'`=\/]/g, s => escapeReplacements[s]);
 }
 
+function bigNumber(string) {
+    string = string.toString();
+    const maxChunkSize = 3;
+    const chunks = [];
+    for (i = string.length; i > 0; i -= maxChunkSize) {
+        const left = Math.max(0, i - maxChunkSize);
+        chunks.push(string.substring(left, i));
+    }
+    chunks.reverse();
+    return chunks.join("&nbsp;");
+}
+
 async function getObjects(addresses) {
     const responseJson = await fetch(
         "/api/objects/",
@@ -126,7 +138,7 @@ class ObjectTreeView {
             <a href="/objects/${escapeHtml(object.address)}" title="Address: ${escapeHtml(object.address)}"><i class="bi bi-link-45deg"></i></a>
             <span title="Retained heap, B" class="text-muted">
                 [<i class="bi bi-lock"></i>
-                ${escapeHtml(object.retained_heap)}]
+                ${bigNumber(escapeHtml(object.retained_heap))}]
             </span>
             <code>${escapeHtml(object.type)}</code>
         `);
