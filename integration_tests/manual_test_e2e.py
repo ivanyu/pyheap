@@ -20,23 +20,16 @@ import subprocess
 import sys
 import time
 from contextlib import contextmanager, closing
-from pathlib import Path
 from typing import Iterator
 import pytest
+from _pytest.tmpdir import TempPathFactory
 from pyheap_ui.heap_reader import HeapReader
 
 
 @pytest.mark.parametrize("docker", [False, True])
 def test_e2e(docker: bool, test_heap_path: str) -> None:
-    inferior_heap_path: str
-    if docker:
-        inferior_heap_path = "/heap.pyheap"
-    else:
-        inferior_heap_path = test_heap_path
-    with _inferior_process(
-        docker, inferior_heap_path, test_heap_path
-    ) as ip_pid, _dumper_process(
-        inferior_heap_path, ip_pid, sudo_required=docker
+    with _inferior_process(docker) as ip_pid, _dumper_process(
+        test_heap_path, ip_pid, sudo_required=docker
     ) as dp:
         print(f"Inferior process {ip_pid}")
         print(f"Dumper process {dp.pid}")
@@ -54,16 +47,13 @@ def test_e2e(docker: bool, test_heap_path: str) -> None:
             assert reader._offset == mm.size()
 
 
-@pytest.fixture
-def test_heap_path(tmp_path: Path) -> str:
-    r = tmp_path / "heap.pyheap"
+@pytest.fixture(scope="function")
+def test_heap_path(tmp_path_factory: TempPathFactory) -> str:
+    r = tmp_path_factory.mktemp("pyheap-integration-test") / "heap.pyheap"
     try:
         yield r
     finally:
-        try:
-            os.remove(r)
-        except Exception as e:
-            print(e)
+        os.remove(r)
 
 
 @contextmanager
@@ -82,9 +72,7 @@ def _inferior_process_plain() -> Iterator[int]:
 
 
 @contextmanager
-def _inferior_process_docker(
-    inferior_heap_path: str, test_heap_path: str
-) -> Iterator[int]:
+def _inferior_process_docker() -> Iterator[int]:
     python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
     docker_proc = subprocess.run(
         [
@@ -123,16 +111,6 @@ def _inferior_process_docker(
 
     try:
         yield pid
-
-        docker_proc = subprocess.run(
-            ["docker", "cp", f"{container_id}:{inferior_heap_path}", test_heap_path],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        if docker_proc.returncode != 0:
-            print(docker_proc.stdout.decode("utf-8"))
-            print(docker_proc.stderr.decode("utf-8"))
-        assert docker_proc.returncode == 0
     finally:
         subprocess.run(
             ["docker", "kill", container_id],
@@ -142,11 +120,9 @@ def _inferior_process_docker(
 
 
 @contextmanager
-def _inferior_process(
-    docker: bool, inferior_heap_path: str, test_heap_path: str
-) -> Iterator[int]:
+def _inferior_process(docker: bool) -> Iterator[int]:
     if docker:
-        with _inferior_process_docker(inferior_heap_path, test_heap_path) as r:
+        with _inferior_process_docker() as r:
             yield r
     else:
         with _inferior_process_plain() as r:
@@ -181,3 +157,12 @@ def _dumper_process(
         out, err = dumper_proc.communicate(timeout=5)
         print(out.decode("utf-8"))
         print(err.decode("utf-8"))
+
+    if sudo_required:
+        chown_proc = subprocess.run(
+            ["sudo", "chown", f"{os.getuid()}:{os.getgid()}", test_heap_path]
+        )
+        if chown_proc.returncode != 0:
+            print(chown_proc.stdout.decode("utf-8"))
+            print(chown_proc.stderr.decode("utf-8"))
+        assert chown_proc.returncode == 0
