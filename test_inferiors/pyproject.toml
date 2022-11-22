@@ -1,10 +1,10 @@
 [tool.poetry]
-name = "test-inferiors"
+name = "test_inferiors"
 version = "0.3.0"
 description = ""
 authors = ["Ivan Yurchenko <ivan@ivanyu.me>"]
 readme = "README.md"
-packages = [{include = "test_inferiors"}]
+#packages = [{include = "test_inferiors"}]
 
 [tool.poetry.dependencies]
 python = "^3.8"

@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import os.path
+from contextlib import closing
 from dataclasses import dataclass
 from importlib.machinery import SourceFileLoader
 from subprocess import Popen
@@ -46,59 +47,50 @@ def dump_heap(args: argparse.Namespace) -> None:
     injector_code = _load_code("injector.py")
     dumper_code = _prepare_dumper_code()
 
-    try:
-        progress_file_path = os.path.join(
-            tempfile.mkdtemp(prefix="pyheap-"), "progress.json"
+    with closing(ProgressFile(args.pid)) as progress_file:
+        progress_file_path = (
+            progress_file.for_target if progress_file.is_available else ""
         )
-        Path(progress_file_path).touch(mode=0o622, exist_ok=False)  # rw--w--w-
-    except OSError as e:
-        print(f"Error creating progress file: {e}, progress will not be reported")
-        progress_file_path = ""
 
-    cmd = []
-    if nsenter_needed:
-        cmd += ["nsenter", "-t", str(args.pid), "-a"]
-    cmd += [
-        "gdb",
-        "--readnow",
-        "-iex",
-        "set debuginfod enabled off",
-        "-ex",
-        "break _PyEval_EvalFrameDefault",
-        "-ex",
-        "continue",
-        "-ex",
-        "del 1",
-        "-ex",
-        f"python {injector_code}",
-        "-ex",
-        "set print elements 0",
-        "-ex",
-        "set max-value-size unlimited",
-        "-ex",
-        f'set $dump_success = $dump_python_heap("{dumper_code}", "{heap_file_path}", {args.str_repr_len}, "{progress_file_path}")',
-        "-ex",
-        "detach",
-        "-ex",
-        "quit $dump_success",
-        "-p",
-        str(gdb_pid),
-    ]
-    p = Popen(cmd, shell=False)
-    progress_tracker = ProgressTracker(
-        progress_file_path=progress_file_path, should_continue=lambda: p.poll() is None
-    )
-    progress_tracker.track_progress()
-    p.communicate()
+        cmd = []
+        if nsenter_needed:
+            cmd += ["nsenter", "-t", str(args.pid), "-a"]
+        cmd += [
+            "gdb",
+            "--readnow",
+            "-iex",
+            "set debuginfod enabled off",
+            "-ex",
+            "break _PyEval_EvalFrameDefault",
+            "-ex",
+            "continue",
+            "-ex",
+            "del 1",
+            "-ex",
+            f"python {injector_code}",
+            "-ex",
+            "set print elements 0",
+            "-ex",
+            "set max-value-size unlimited",
+            "-ex",
+            f'set $dump_success = $dump_python_heap("{dumper_code}", "{heap_file_path}", {args.str_repr_len}, "{progress_file_path}")',
+            "-ex",
+            "detach",
+            "-ex",
+            "quit $dump_success",
+            "-p",
+            str(gdb_pid),
+        ]
+        p = Popen(cmd, shell=False)
+        progress_tracker = ProgressTracker(
+            progress_file=progress_file, should_continue=lambda: p.poll() is None
+        )
+        progress_tracker.track_progress()
+        p.communicate()
 
-    if progress_file_path:
-        try:
-            os.remove(progress_file_path)
-        except OSError as e:
-            print(f"Error deleting progress file '{progress_file_path}': {e}")
+        if p.returncode != 0:
+            print("Dumping finished with error")
 
-    if p.returncode != 0:
-        print("Dumping finished with error")
     exit(p.returncode)
 
 
@@ -151,11 +143,49 @@ class Progress:
         )
 
 
+class ProgressFile:
+    def __init__(self, target_pid: int) -> None:
+        self._target_root_fs = f"/proc/{target_pid}/root"
+        self._path: Optional[str]
+        try:
+            self._path = os.path.join(
+                tempfile.mkdtemp(prefix="pyheap-", dir=f"{self._target_root_fs}/tmp"),
+                "progress.json",
+            )
+            Path(self._path).touch(mode=0o622, exist_ok=False)  # rw--w--w-
+        except OSError as e:
+            print(f"Error creating progress file: {e}, progress will not be reported")
+            self._path = None
+
+    @property
+    def is_available(self) -> bool:
+        return self._path is not None
+
+    @property
+    def for_dumper(self) -> str:
+        if not self.is_available:
+            raise ValueError("Not available")
+        return self._path
+
+    @property
+    def for_target(self) -> str:
+        if not self.is_available:
+            raise ValueError("Not available")
+        return "/" + str(Path(self._path).relative_to(self._target_root_fs))
+
+    def close(self) -> None:
+        if self.is_available:
+            try:
+                os.remove(self._path)
+            except OSError as e:
+                print(f"Error deleting progress file '{self._path}': {e}")
+
+
 class ProgressTracker:
     def __init__(
-        self, *, progress_file_path: str, should_continue: Callable[[], bool]
+        self, *, progress_file: ProgressFile, should_continue: Callable[[], bool]
     ) -> None:
-        self._progress_file_path = progress_file_path
+        self._progress_file = progress_file
         self._should_continue = should_continue
         self._last_progress_displayed = -1
 
@@ -177,11 +207,12 @@ class ProgressTracker:
     def _read_progress(self) -> Optional[Progress]:
         progress: Optional[Progress] = None
 
-        if not self._progress_file_path:
+        if not self._progress_file.is_available:
             return progress
 
+        progress_file_path = self._progress_file.for_dumper
         try:
-            with open(self._progress_file_path, "r") as f:
+            with open(progress_file_path, "r") as f:
                 content = f.read()
                 # We check that the record is properly finalized as writes are not expected to be atomic.
                 if content.endswith("\n"):
@@ -190,7 +221,7 @@ class ProgressTracker:
                     except json.decoder.JSONDecodeError:
                         pass  # intentionally no-op
         except OSError as e:
-            print(f"Error reading progress file '{self._progress_file_path}': {e}")
+            print(f"Error reading progress file '{progress_file_path}': {e}")
         return progress
 
     def _display(self, progress: Progress) -> None:
