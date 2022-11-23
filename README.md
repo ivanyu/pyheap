@@ -28,7 +28,7 @@ Find the PID of a running CPython process you're interested in.
 
 Run:
 ```bash
-$ python3 pyheap_dump.pyz --pid <pid> --file $(pwd)/heap.pyheap
+$ python3 pyheap_dump.pyz --pid <pid> --file heap.pyheap
 ```
 
 The heap file is written by the target process in its `/tmp`, but is moved subsequently under the specified path.
@@ -41,7 +41,7 @@ $ python3 pyheap_dump.pyz -h
 ```
 for additional options.
 
-#### Containers nad Namespaces
+#### Containers and Namespaces
 
 PyHeap can attach to targets that are running in Linux namespaces. Docker containers is the most common example of this situation.
 
