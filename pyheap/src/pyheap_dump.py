@@ -265,7 +265,6 @@ class ProgressTracker:
 def _move_heap_file(heap_file: CrossNamespaceFile, final_path: str) -> None:
     final_path_unambiguous = final_path
     i = -1
-    print(f"exists {os.path.exists(final_path)}")
     while os.path.exists(final_path_unambiguous):
         i += 1
         final_path_unambiguous = f"{final_path}.{i}"
