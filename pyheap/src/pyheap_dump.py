@@ -19,6 +19,7 @@ import argparse
 import json
 import os.path
 import shutil
+import subprocess
 import uuid
 from contextlib import closing
 from dataclasses import dataclass
@@ -31,18 +32,26 @@ from typing import Optional, Dict, Any, Callable, Union, Tuple
 
 
 def dump_heap(args: argparse.Namespace) -> None:
+    target_pid: int
     gdb_pid: int
     nsenter_needed: bool
-    if _pid_namespace(args.pid) == _pid_namespace(os.getpid()):
+    if args.docker_container is not None:
+        print("Target is Docker container")
+        target_pid = _get_container_pid(args.docker_container)
+        gdb_pid = 1
+        nsenter_needed = True
+    elif _pid_namespace(args.pid) == _pid_namespace(os.getpid()):
         print("Dumper and target are in same PID namespace")
-        gdb_pid = args.pid
+        target_pid = args.pid
+        gdb_pid = target_pid
         nsenter_needed = False
     else:
+        target_pid = args.pid
         gdb_pid = _target_pid_in_own_namespace(args.pid)
         print(f"Target process PID in its namespace: {gdb_pid}")
         nsenter_needed = True
 
-    print(f"Dumping heap from process {args.pid} into {args.file}")
+    print(f"Dumping heap from process {target_pid} into {args.file}")
     print(f"Max length of string representation is {args.str_repr_len}")
 
     injector_code = _load_code("injector.py")
@@ -51,14 +60,14 @@ def dump_heap(args: argparse.Namespace) -> None:
     tmp_dir: CrossNamespaceTmpDir
     progress_file: CrossNamespaceFile
     heap_file: CrossNamespaceFile
-    with closing(CrossNamespaceTmpDir(args.pid)) as tmp_dir, closing(
+    with closing(CrossNamespaceTmpDir(target_pid)) as tmp_dir, closing(
         tmp_dir.create_file("progress.json", 0o600)
     ) as progress_file, closing(
         tmp_dir.create_file(f"{uuid.uuid4()}.pyheap", 0o600)
     ) as heap_file:
         cmd = []
         if nsenter_needed:
-            cmd += ["nsenter", "-t", str(args.pid), "-a"]
+            cmd += ["nsenter", "-t", str(target_pid), "-a"]
         cmd += [
             "gdb",
             "--readnow",
@@ -98,6 +107,39 @@ def dump_heap(args: argparse.Namespace) -> None:
             _move_heap_file(heap_file, args.file)
 
     exit(p.returncode)
+
+
+def _get_container_pid(container: str) -> int:
+    proc = subprocess.run(
+        ["docker", "inspect", container],
+        text=True,
+        encoding="utf-8",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if proc.returncode != 0:
+        print("Cannot determine target PID:")
+        print(f"`docker inspect {container}` returned:")
+        print(proc.stderr)
+        exit(1)
+
+    inspect_obj = json.loads(proc.stdout)
+    if len(inspect_obj) != 1:
+        print("Cannot determine target PID:")
+        print(
+            f"Expected 1 object in `docker inspect {container}`, but got {len(inspect_obj)}"
+        )
+        exit(1)
+
+    state = inspect_obj[0]["State"]
+    if state["Status"] != "running":
+        print("Cannot determine target PID:")
+        print(f"Container is not running")
+        exit(1)
+
+    pid = int(state["Pid"])
+    print(f"Target PID: {pid}")
+    return pid
 
 
 def _pid_namespace(pid: Union[int, str]) -> str:
@@ -275,9 +317,13 @@ def _move_heap_file(heap_file: CrossNamespaceFile, final_path: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Dump heap.", allow_abbrev=False)
-    parser.add_argument(
-        "--pid", "-p", type=int, required=True, help="target process PID"
+
+    target_group = parser.add_mutually_exclusive_group(required=True)
+    target_group.add_argument("--pid", "-p", type=int, help="target process PID")
+    target_group.add_argument(
+        "--docker-container", type=str, help="target Docker container"
     )
+
     parser.add_argument("--file", "-f", type=str, required=True, help="heap file name")
     parser.add_argument(
         "--str-repr-len",
