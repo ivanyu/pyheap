@@ -41,11 +41,19 @@ $ python3 pyheap_dump.pyz -h
 ```
 for additional options.
 
-#### Containers and Namespaces
+### Containers and Namespaces
 
 PyHeap can attach to targets that are running in Linux namespaces. Docker containers is the most common example of this situation.
 
-To use PyHeap with a containerized/namespaced process, find the process ID in the host PID namespace. Normally Docker containers have their own PID namespace and the process is running under the PID 1. However, on the host they have another PID. Check the process list with `top` or other process listing tool or use `docker inspect` (in `State`).
+**Note:** Some Docker setups doesn't have real processes running on the same (virtual) machine where `docker ...` control commands are executed. One example is WSL 2 + Docker Desktop on Windows. PyHeap doesn't work in such environments.
+
+If you want to use PyHeap on the root process in a Docker container, use `--docker-container` instead of `--pid/-p` and specify the name or ID:
+
+```bash
+$ sudo python3 pyheap_dump.pyz --docker-container <container_name> --file heap.pyheap
+```
+
+If it's not the root process in the container, or you work with another container system (e.g. systemd-nspawn) or just generic Linux namespaces, you need to find the target PID. Please mind that this must be the PID from the dumper point of view: processes in namespaces can have their own PID numbers. For example, if you're about to run the dumper on a Linux host and the target process is running in a container, check the process list with `ps` or `top` on the host. Use `--pid/-p` for the dumper.
 
 Make sure the GDB executable is available in the target mount namespace. If the target is in a Docker container, you most likely need to install GDB inside it (please note this can be done in a running container as well).
 
