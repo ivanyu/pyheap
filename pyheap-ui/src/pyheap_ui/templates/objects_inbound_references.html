@@ -1,0 +1,49 @@
+<!--
+  Copyright 2022 Ivan Yurchenko
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+{% extends 'objects_base.html' %}
+
+{% block content_object %}
+<div id="inbound-references-tree-panel" class="text-truncate pt-3" style="overflow: scroll;">
+    <div id="inbound-references-tree-spinner" class="spinner-border m-5" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script type="module">
+const rootAddr = {{ address }};
+import { ObjectTreeView, getObjects, getObject } from "/static/objects.js";
+
+class InboundReferencesObjectTreeView extends ObjectTreeView {
+    async fetchTopLevelObjects(root) {
+        return await getObjects(root.inbound_references);
+    }
+
+    async getChildObjects(li) {
+        return await getObjects(li.object.inbound_references);
+    }
+}
+
+$( document ).ready(async function() {
+    const rootObject = await getObject(rootAddr);
+    const irotv = new InboundReferencesObjectTreeView(rootObject);
+
+    $("#inbound-references-tree-panel").append(await irotv.render());
+    $("#inbound-references-tree-spinner").remove();
+});
+</script>
+{% endblock %}

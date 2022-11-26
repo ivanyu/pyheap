@@ -1,0 +1,31 @@
+<!--
+  Copyright 2022 Ivan Yurchenko
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+{% extends 'objects_base.html' %}
+
+{% from 'objects_with_elements.j2' import render_element %}
+
+{% block content_object %}
+<div class="text-truncate pt-3" style="overflow: scroll;">
+<ul class="list-unstyled">
+{% for addr in type_instances %}
+    <li>{{ render_element(addr, objects, retained_heap, types) }}
+{% endfor %}
+</ul>
+</div>
+{% endblock %}
+
+{% block script %}
+{% endblock %}

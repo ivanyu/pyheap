@@ -1,0 +1,91 @@
+<!--
+  Copyright 2022 Ivan Yurchenko
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+{% extends 'base.html' %}
+
+{% from 'objects_base_macros.j2' import render_object_link %}
+
+{% block content %}
+<div>
+    <p><strong>Address:</strong> {{ address }}</p>
+    <p><strong>Type:</strong> {{ render_object_link(type_address) }} <code>{{ type }}</code></p>
+    <p><strong>Size:</strong> {{ obj.size | big_number | safe }}&nbsp;B</p>
+    <p><strong>Retained heap:</strong> {{ retained_heap.get_for_object(address) | big_number | safe }}&nbsp;B</p>
+    <p><strong>String representation:</strong> <span class="inline-object-str text-muted">
+        {% if obj.str_repr|length > 1000 %}
+        <span>{{ obj.str_repr|truncate(1000, end="") }} <a title="Expand" onclick="toggleFullText(event)" href="#">...</a></span>
+        <span style="display: none;">{{ obj.str_repr }}</span>
+        {% else %}
+        {{ obj.str_repr }}
+        {% endif %}
+    </span></p>
+</div>
+
+<ul class="nav nav-tabs">
+    {% if "attributes" in object_tabs %}
+        <li class="nav-item">
+            {% if object_tabs["attributes"] %}
+            <a class="nav-link active" aria-current="page" href="/objects/{{ address }}/attributes">Attributes</a>
+            {% else %}
+            <a class="nav-link" href="/objects/{{ address }}/attributes">Attributes</a>
+            {% endif %}
+        </li>
+    {% endif %}
+
+    {% if "elements" in object_tabs %}
+        <li class="nav-item">
+            {% if object_tabs["elements"] %}
+            <a class="nav-link active" aria-current="page" href="/objects/{{ address }}/elements">Elements</a>
+            {% else %}
+            <a class="nav-link" href="/objects/{{ address }}/elements">Elements</a>
+            {% endif %}
+        </li>
+    {% endif %}
+
+    {% if "instances" in object_tabs %}
+        <li class="nav-item">
+            {% if object_tabs["instances"] %}
+            <a class="nav-link active" aria-current="page" href="/objects/{{ address }}/instances">Type instances</a>
+            {% else %}
+            <a class="nav-link" href="/objects/{{ address }}/instances">Type instances</a>
+            {% endif %}
+        </li>
+    {% endif %}
+
+    {% if "referents" in object_tabs %}
+        <li class="nav-item">
+            {% if object_tabs["referents"] %}
+            <a class="nav-link active" aria-current="page" href="/objects/{{ address }}/referents">Referents</a>
+            {% else %}
+            <a class="nav-link" href="/objects/{{ address }}/referents">Referents</a>
+            {% endif %}
+        </li>
+    {% endif %}
+
+    {% if "inbound_references" in object_tabs %}
+        <li class="nav-item">
+            {% if object_tabs["inbound_references"] %}
+            <a class="nav-link active" aria-current="page" href="/objects/{{ address }}/inbound-references">Inbound references</a>
+            {% else %}
+            <a class="nav-link" href="/objects/{{ address }}/inbound-references">Inbound references</a>
+            {% endif %}
+        </li>
+    {% endif %}
+</ul>
+
+<div>
+{% block content_object %}{% endblock %}
+</div>
+{% endblock %}
