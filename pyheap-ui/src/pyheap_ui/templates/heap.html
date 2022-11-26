@@ -23,6 +23,7 @@
 {% block content %}
 
 {% macro render_pagination() -%}
+<div class="row">
 <nav aria-label="Page navigation example">
     <ul class="pagination">
         {% if pagination.prev_enabled %}
@@ -48,13 +49,41 @@
         {% endif %}
     </ul>
 </nav>
+</div>
 {%- endmacro %}
 
 <div id="heap-panel">
-    <div>
+    <div class="row">
         <p><strong>Total heap size:</strong> {{ total_heap_size | big_number | safe }}&nbsp;B</p>
         <p><strong>Objects:</strong> {{ object_count | big_number | safe }}</p>
     </div>
+
+    <form class="mb-3 p-2 g-1 border rounded" method="get">
+        <fieldset>
+            <legend>Search</legend>
+            <div class="row mb-3">
+                <label for="searchType" class="col-sm-2 col-form-label">Type</label>
+                <div class="col-sm-10">
+                    <input type="text" class="form-control" id="searchType" name="search_type" value="{{ search_type }}">
+                </div>
+                <div class="form-text">
+                    Search for exact matches of the type name.
+                </div>
+            </div>
+            <div class="row mb-3">
+                <label for="searchStrRepr" class="col-sm-2 col-form-label">String representation</label>
+                <div class="col-sm-10">
+                    <input type="text" class="form-control" id="searchStrRepr" name="search_str_repr" value="{{ search_str_repr }}">
+                </div>
+                <div class="form-text">
+                    Search for substrings of the string representation.
+                </div>
+            </div>
+            <div class="col-12 mt-2">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> Search</button>
+            </div>
+        </fieldset>
+    </form>
 
     {{ render_pagination() }}
 

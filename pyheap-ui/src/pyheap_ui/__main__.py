@@ -21,7 +21,7 @@ import mmap
 import os
 import time
 import math
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, List
 from flask import Flask, render_template, abort, request
 from flask.json.provider import DefaultJSONProvider
 from .heap_types import Heap, JsonObject, Address, HeapObject
@@ -31,6 +31,7 @@ from .heap import (
     InboundReferences,
     RetainedHeap,
     objects_sorted_by_retained_heap,
+    ObjectWithRetainedHeap,
 )
 from .pagination import Pagination
 
@@ -82,24 +83,46 @@ def heap() -> str:
     except ValueError:
         page = 1
 
+    search_type = request.args.get("search_type") or ""
+    search_str_repr = request.args.get("search_str_repr") or ""
+    found_objects = _find_objects_for_heap_view(search_type, search_str_repr)
+
     page_size = 1000
-    object_count = len(heap.objects)
+    object_count = len(found_objects)
     page_count = int(math.ceil(object_count / page_size))
     pagination = Pagination(page_count, page)
-    objects = objects_sorted_by_retained_heap(heap, retained_heap)[
-        (page - 1) * page_size : page * page_size
-    ]
+    objects_to_render = found_objects[(page - 1) * page_size : page * page_size]
     total_heap_size = sum((o.size for o in heap.objects.values()))
     return render_template(
         "heap.html",
         tab_heap_active=True,
         pagination=pagination,
-        objects=objects,
+        objects=objects_to_render,
         types=heap.types,
         total_heap_size=total_heap_size,
         object_count=object_count,
         with_str_repr=heap.header.flags.with_str_repr,
+        search_type=search_type,
+        search_str_repr=search_str_repr,
     )
+
+
+def _find_objects_for_heap_view(
+    search_type: str, search_str_repr: str
+) -> List[ObjectWithRetainedHeap]:
+    result = objects_sorted_by_retained_heap(heap, retained_heap)
+
+    if search_type:
+        result = [
+            trio for trio in result if heap.types.get(trio.obj.type) == search_type
+        ]
+
+    if search_str_repr:
+        result = [
+            trio for trio in result if search_str_repr in (trio.obj.str_repr or "")
+        ]
+
+    return result
 
 
 @app.route("/objects/<int:address>")

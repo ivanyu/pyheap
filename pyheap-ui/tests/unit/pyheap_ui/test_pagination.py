@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import pytest
+
 from pyheap_ui.pagination import Pagination
 
 
@@ -21,6 +23,13 @@ def test_minimal() -> None:
     assert not pagination.prev_enabled
     assert not pagination.next_enabled
     assert pagination.layout == [1]
+
+
+def test_zero_pages() -> None:
+    pagination = Pagination(0, 0)
+    assert not pagination.prev_enabled
+    assert not pagination.next_enabled
+    assert pagination.layout == []
 
 
 def test_simple_1() -> None:
@@ -141,3 +150,8 @@ def test_long_1() -> None:
     assert pagination.prev_enabled
     assert not pagination.next_enabled
     assert pagination.layout == [1, 2, 3, None, 18, 19, 20]
+
+
+def test_invalid_page_number() -> None:
+    with pytest.raises(ValueError, match="Invalid page number: 2"):
+        Pagination(1, 2)

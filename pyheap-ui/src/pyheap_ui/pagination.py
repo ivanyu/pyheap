@@ -21,9 +21,7 @@ class Pagination:
     _MIN_PAGES_TO_COLLAPSE = 15
 
     def __init__(self, total_pages: int, page: int) -> None:
-        if total_pages < 1:
-            raise ValueError(f"Invalid total_pages: {total_pages}")
-        if page < 1 or page > total_pages:
+        if page > total_pages:
             raise ValueError(f"Invalid page number: {page}")
         self._total_pages = total_pages
         self._page = page
