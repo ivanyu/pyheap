@@ -25,7 +25,7 @@ import sys
 import time
 from multiprocessing import Pool
 from pathlib import Path
-from typing import Mapping, Set, Dict, List, Tuple, Optional
+from typing import Mapping, Set, Dict, List, Tuple, Optional, NamedTuple
 
 from pyheap_ui.heap_reader import Heap, HeapObject
 from pyheap_ui.heap_types import ObjectDict, ThreadName, Address, JsonObject
@@ -408,11 +408,17 @@ def provide_retained_heap_with_caching(
     return retained_heap
 
 
+class ObjectWithRetainedHeap(NamedTuple):
+    addr: Address
+    obj: HeapObject
+    retained_heap: int
+
+
 def objects_sorted_by_retained_heap(
     heap: Heap, retained_heap: RetainedHeap
-) -> List[Tuple[Address, HeapObject, int]]:
+) -> List[ObjectWithRetainedHeap]:
     result = [
-        (addr, o, retained_heap.get_for_object(addr))
+        ObjectWithRetainedHeap(addr, o, retained_heap.get_for_object(addr))
         for addr, o in heap.objects.items()
     ]
     result.sort(key=lambda x: x[2], reverse=True)
