@@ -24,8 +24,7 @@ import math
 from typing import Optional, Any, Dict
 from flask import Flask, render_template, abort, request
 from flask.json.provider import DefaultJSONProvider
-
-from .heap_types import Heap, JsonObject, Address
+from .heap_types import Heap, JsonObject, Address, HeapObject
 from .heap_reader import HeapReader
 from .heap import (
     provide_retained_heap_with_caching,
@@ -104,32 +103,136 @@ def heap() -> str:
 
 
 @app.route("/objects/<int:address>")
-def objects(address: int) -> str:
+@app.route("/objects/<int:address>/attributes")
+def objects_attributes(address: int) -> str:
     if address not in heap.objects:
         abort(404)
 
     obj = heap.objects[address]
 
+    return render_template(
+        "objects_attributes.html",
+        tab_object_active=True,
+        object_tabs=_object_tabs(obj, "attributes"),
+        address=address,
+        obj=obj,
+        retained_heap=retained_heap,
+        type_address=obj.type,
+        type=heap.types[obj.type],
+        types=heap.types,
+        objects=heap.objects,
+    )
+
+
+@app.route("/objects/<int:address>/elements")
+def objects_elements(address: int) -> str:
+    if address not in heap.objects:
+        abort(404)
+    obj = heap.objects[address]
+
+    if obj.type not in well_known_container_types():
+        abort(404)
+
+    return render_template(
+        "objects_elements.html",
+        tab_object_active=True,
+        object_tabs=_object_tabs(obj, "elements"),
+        address=address,
+        obj=obj,
+        retained_heap=retained_heap,
+        type_address=obj.type,
+        type=heap.types[obj.type],
+        types=heap.types,
+        objects=heap.objects,
+        well_known_container_type=well_known_container_types().get(obj.type),
+    )
+
+
+@app.route("/objects/<int:address>/instances")
+def objects_instances(address: int) -> str:
+    if address not in heap.objects:
+        abort(404)
+    obj = heap.objects[address]
+
     is_type_type = obj.type == heap.header.well_known_types.get("type")
+    if not is_type_type:
+        abort(404)
+
     type_instances = None
     if is_type_type:
         type_instances = [
             addr for addr, obj in heap.objects.items() if obj.type == address
         ]
+
     return render_template(
-        "objects.html",
+        "objects_instances.html",
         tab_object_active=True,
+        object_tabs=_object_tabs(obj, "instances"),
         address=address,
         obj=obj,
+        retained_heap=retained_heap,
         type_address=obj.type,
         type=heap.types[obj.type],
-        objects=heap.objects,
         types=heap.types,
-        retained_heap=retained_heap,
-        well_known_container_type=well_known_container_types().get(obj.type),
-        is_type_type=is_type_type,
+        objects=heap.objects,
         type_instances=type_instances,
     )
+
+
+@app.route("/objects/<int:address>/referents")
+def objects_referents(address: int) -> str:
+    if address not in heap.objects:
+        abort(404)
+    obj = heap.objects[address]
+
+    return render_template(
+        "objects_referents.html",
+        tab_object_active=True,
+        object_tabs=_object_tabs(obj, "referents"),
+        address=address,
+        obj=obj,
+        retained_heap=retained_heap,
+        type_address=obj.type,
+        type=heap.types[obj.type],
+    )
+
+
+@app.route("/objects/<int:address>/inbound-references")
+def objects_inbound_references(address: int) -> str:
+    if address not in heap.objects:
+        abort(404)
+    obj = heap.objects[address]
+
+    return render_template(
+        "objects_inbound_references.html",
+        tab_object_active=True,
+        object_tabs=_object_tabs(obj, "inbound_references"),
+        address=address,
+        obj=obj,
+        retained_heap=retained_heap,
+        type_address=obj.type,
+        type=heap.types[obj.type],
+    )
+
+
+def _object_tabs(obj: HeapObject, current_active: str) -> Dict[str, bool]:
+    object_tabs = {"attributes": False}
+
+    if obj.type in well_known_container_types():
+        object_tabs["elements"] = False
+
+    is_type_type = obj.type == heap.header.well_known_types.get("type")
+    if is_type_type:
+        object_tabs["instances"] = False
+
+    object_tabs["referents"] = False
+    object_tabs["inbound_references"] = False
+
+    if current_active not in object_tabs:
+        raise ValueError(f"{current_active} is not available for {obj}")
+    else:
+        object_tabs[current_active] = True
+    return object_tabs
 
 
 @app.route("/api/objects/", methods=["POST"])

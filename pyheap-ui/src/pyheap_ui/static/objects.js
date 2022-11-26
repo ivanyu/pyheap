@@ -13,8 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-var notifications = null;
+import { notifications } from "./notifications.js";
 
 const escapeReplacements = {
     "&": "&amp;",
@@ -34,7 +33,7 @@ function bigNumber(string) {
     string = string.toString();
     const maxChunkSize = 3;
     const chunks = [];
-    for (i = string.length; i > 0; i -= maxChunkSize) {
+    for (var i = string.length; i > 0; i -= maxChunkSize) {
         const left = Math.max(0, i - maxChunkSize);
         chunks.push(string.substring(left, i));
     }
@@ -178,63 +177,4 @@ class ObjectTreeView {
     }
 }
 
-class ReferentsObjectTreeView extends ObjectTreeView {
-    async fetchTopLevelObjects(root) {
-        return await getObjects(root.referents);
-    }
-
-    async getChildObjects(li) {
-        return await getObjects(li.object.referents);
-    }
-}
-
-class InboundReferencesObjectTreeView extends ObjectTreeView {
-    async fetchTopLevelObjects(root) {
-        return await getObjects(root.inbound_references);
-    }
-
-    async getChildObjects(li) {
-        return await getObjects(li.object.inbound_references);
-    }
-}
-
-class Notifications {
-    #notificationsArea;
-    constructor(notificationsArea) {
-        this.#notificationsArea = notificationsArea;
-    }
-
-    showError(text) {
-        const toastEl = $(`
-            <div class="toast text-bg-danger" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="false">
-                <div class="toast-header">
-                    <strong class="me-auto">Error</strong>
-                    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-                </div>
-                <div class="toast-body">
-                  ${text}
-                </div>
-            </div>
-        `);
-        toastEl.on("hidden.bs.toast", () => {
-            toastEl.remove();
-        });
-        this.#notificationsArea.append(toastEl);
-        const toast = new bootstrap.Toast(toastEl);
-        toast.show();
-    }
-}
-
-$( document ).ready(async function() {
-    notifications = new Notifications($("#notifications-area"));
-
-    const rootObject = await getObject(rootAddr);
-    const rotv = new ReferentsObjectTreeView(rootObject);
-    const irotv = new InboundReferencesObjectTreeView(rootObject);
-
-    $("#referent-tree-panel").append(await rotv.render());
-    $("#referent-tree-spinner").remove();
-
-    $("#inbound-references-tree-panel").append(await irotv.render());
-    $("#inbound-references-tree-spinner").remove();
-});
+export { ObjectTreeView, getObjects, getObject };
