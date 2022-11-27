@@ -23,6 +23,7 @@ import os
 import random
 import sys
 import time
+from collections import Counter
 from multiprocessing import Pool
 from pathlib import Path
 from typing import Mapping, Set, Dict, List, Tuple, Optional, NamedTuple
@@ -408,20 +409,31 @@ def provide_retained_heap_with_caching(
     return retained_heap
 
 
-class ObjectWithRetainedHeap(NamedTuple):
+class AddressWithRetainedHeap(NamedTuple):
     addr: Address
-    obj: HeapObject
     retained_heap: int
 
 
 def objects_sorted_by_retained_heap(
     heap: Heap, retained_heap: RetainedHeap
-) -> List[ObjectWithRetainedHeap]:
+) -> List[AddressWithRetainedHeap]:
     result = [
-        ObjectWithRetainedHeap(addr, o, retained_heap.get_for_object(addr))
+        AddressWithRetainedHeap(addr, retained_heap.get_for_object(addr) or 0)
         for addr, o in heap.objects.items()
     ]
-    result.sort(key=lambda x: x[2], reverse=True)
+    result.sort(key=lambda x: x[1], reverse=True)
+    return result
+
+
+def types_sorted_by_retained_heap(
+    heap: Heap, retained_heap: RetainedHeap
+) -> List[AddressWithRetainedHeap]:
+    counter = Counter()
+    for obj in heap.objects.values():
+        counter[obj.type] += retained_heap.get_for_object(obj.address) or 0
+    result = []
+    for type_addr, rh in counter.most_common(None):
+        result.append(AddressWithRetainedHeap(type_addr, rh))
     return result
 
 
