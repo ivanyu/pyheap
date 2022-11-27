@@ -18,6 +18,8 @@ import mmap
 from abc import ABC, abstractmethod
 import sys
 
+from tqdm import tqdm
+
 if sys.version_info >= (3, 9):
     from functools import cache
 else:
@@ -97,9 +99,13 @@ class HeapReader:
     _UNSIGNED_LONG_STRUCT = struct.Struct("!Q")
     _UNSIGNED_LONG_STRUCT_SIZE = _UNSIGNED_LONG_STRUCT.size
 
-    def __init__(self, buf: Union[bytes, mmap.mmap]) -> None:
+    def __init__(
+        self, buf: Union[bytes, mmap.mmap], object_progress_bar: bool = False
+    ) -> None:
         self._buf = buf
         self._offset = 0
+
+        self._object_progress_bar = object_progress_bar
 
         self._flags: Optional[HeapFlags] = None
         self._frequent_attrs: Optional[List[str]] = None
@@ -288,11 +294,13 @@ class HeapReader:
             self._str_repr_provider = _NoneStrReprProvider()
 
         dict_size = self._read_unsigned_int()
-        for _ in range(dict_size):
+        iterator = range(dict_size)
+        if self._object_progress_bar:
+            iterator = tqdm(iterator, desc="Loading objects", unit="objects")
+        for _ in iterator:
             addr = self._read(Address)
             obj = self._read_heap_object(addr)
             objects[addr] = obj
-
         return objects
 
     def _read_str_repr(self, offset: int) -> str:
