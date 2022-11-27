@@ -100,7 +100,7 @@ def heap() -> str:
         objects=objects_to_render,
         types=heap.types,
         total_heap_size=total_heap_size,
-        object_count=object_count,
+        object_count=len(heap.objects),
         with_str_repr=heap.header.flags.with_str_repr,
         search_type=search_type,
         search_str_repr=search_str_repr,
