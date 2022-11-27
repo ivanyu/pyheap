@@ -361,7 +361,7 @@ if __name__ == "__main__":
         app.logger.info("Loading file %s", args.file)
         with open(args.file, "rb") as f:
             mm = mmap.mmap(f.fileno(), length=0, access=mmap.ACCESS_READ)
-            reader = HeapReader(mm)
+            reader = HeapReader(mm, object_progress_bar=True)
             heap = reader.read()
         app.logger.info(
             "Loading file finished in %.2f seconds", time.monotonic() - start
