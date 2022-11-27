@@ -31,7 +31,8 @@ from .heap import (
     InboundReferences,
     RetainedHeap,
     objects_sorted_by_retained_heap,
-    ObjectWithRetainedHeap,
+    AddressWithRetainedHeap,
+    types_sorted_by_retained_heap,
 )
 from .pagination import Pagination
 
@@ -76,7 +77,7 @@ def threads() -> str:
 
 
 @app.route("/heap")
-def heap() -> str:
+def heap_by_object() -> str:
     page = request.args.get("page") or 1
     try:
         page = int(page)
@@ -85,6 +86,7 @@ def heap() -> str:
 
     search_type = request.args.get("search_type") or ""
     search_str_repr = request.args.get("search_str_repr") or ""
+
     found_objects = _find_objects_for_heap_view(search_type, search_str_repr)
 
     page_size = 1000
@@ -94,32 +96,80 @@ def heap() -> str:
     objects_to_render = found_objects[(page - 1) * page_size : page * page_size]
     total_heap_size = sum((o.size for o in heap.objects.values()))
     return render_template(
-        "heap.html",
+        "heap_by_object.html",
         tab_heap_active=True,
         pagination=pagination,
-        objects=objects_to_render,
+        objects_to_render=objects_to_render,
+        objects=heap.objects,
         types=heap.types,
         total_heap_size=total_heap_size,
-        object_count=object_count,
+        object_count=len(heap.objects),
         with_str_repr=heap.header.flags.with_str_repr,
         search_type=search_type,
-        search_str_repr=search_str_repr,
     )
 
 
 def _find_objects_for_heap_view(
     search_type: str, search_str_repr: str
-) -> List[ObjectWithRetainedHeap]:
+) -> List[AddressWithRetainedHeap]:
     result = objects_sorted_by_retained_heap(heap, retained_heap)
 
     if search_type:
         result = [
-            trio for trio in result if heap.types.get(trio.obj.type) == search_type
+            addr_with_rh
+            for addr_with_rh in result
+            if heap.types.get(heap.objects[addr_with_rh.addr].type) == search_type
         ]
 
     if search_str_repr:
         result = [
-            trio for trio in result if search_str_repr in (trio.obj.str_repr or "")
+            addr_with_rh
+            for addr_with_rh in result
+            if search_str_repr in (heap.objects[addr_with_rh.addr].str_repr or "")
+        ]
+
+    return result
+
+
+@app.route("/heap-by-type")
+def heap_by_type() -> str:
+    page = request.args.get("page") or 1
+    try:
+        page = int(page)
+    except ValueError:
+        page = 1
+
+    search_type = request.args.get("search_type") or ""
+
+    found_types = _find_types_for_heap_view(search_type)
+
+    page_size = 1000
+    type_count = len(found_types)
+    page_count = int(math.ceil(type_count / page_size))
+    pagination = Pagination(page_count, page)
+    types_to_render = found_types[(page - 1) * page_size : page * page_size]
+    total_heap_size = sum((o.size for o in heap.objects.values()))
+    return render_template(
+        "heap_by_type.html",
+        tab_heap_active=True,
+        pagination=pagination,
+        types_to_render=types_to_render,
+        types=heap.types,
+        total_heap_size=total_heap_size,
+        object_count=len(heap.objects),
+        with_str_repr=heap.header.flags.with_str_repr,
+        search_type=search_type,
+    )
+
+
+def _find_types_for_heap_view(search_type: str) -> List[AddressWithRetainedHeap]:
+    result = types_sorted_by_retained_heap(heap, retained_heap)
+
+    if search_type:
+        result = [
+            type_addr_with_rh
+            for type_addr_with_rh in result
+            if heap.types.get(type_addr_with_rh.addr) == search_type
         ]
 
     return result

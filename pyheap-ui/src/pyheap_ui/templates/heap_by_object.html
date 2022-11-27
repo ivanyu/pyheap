@@ -15,42 +15,15 @@
 -->
 {% extends 'base.html' %}
 
+{% from 'heap_macros.j2' import render_pagination %}
+{% from 'common_macros.j2' import render_object_link %}
+
 {% block style %}
 <style>
 </style>
 {% endblock %}
 
 {% block content %}
-
-{% macro render_pagination() -%}
-<div class="row">
-<nav aria-label="Page navigation example">
-    <ul class="pagination">
-        {% if pagination.prev_enabled %}
-        <li class="page-item"><a class="page-link" href="/heap?page={{ pagination.page - 1 }}">Previous</a></li>
-        {% else %}
-        <li class="page-item disabled"><a class="page-link">Previous</a></li>
-        {% endif %}
-
-        {% for p in pagination.layout %}
-            {% if p is none %}
-            <li class="page-item disabled"><a class="page-link">...</a></li>
-            {% elif p == pagination.page %}
-            <li class="page-item active"><a class="page-link" href="/heap?page={{ p }}">{{ p }}</a></li>
-            {% else %}
-            <li class="page-item"><a class="page-link" href="/heap?page={{ p }}">{{ p }}</a></li>
-            {% endif %}
-        {% endfor %}
-
-        {% if pagination.next_enabled %}
-        <li class="page-item"><a class="page-link" href="/heap?page={{ pagination.page + 1 }}">Next</a></li>
-        {% else %}
-        <li class="page-item disabled"><a class="page-link">Next</a></li>
-        {% endif %}
-    </ul>
-</nav>
-</div>
-{%- endmacro %}
 
 <div id="heap-panel">
     <div class="row">
@@ -85,7 +58,13 @@
         </fieldset>
     </form>
 
-    {{ render_pagination() }}
+    <div class="row mb-3">
+        <div class="col-12 mt-2">
+            <a class="btn btn-primary" href="heap-by-type" role="button">Group by type</a>
+        </div>
+    </div>
+
+    {{ render_pagination(pagination) }}
 
     <div id="table-pagination"></div>
     <table class="table table-hover">
@@ -100,18 +79,18 @@
         </tr>
         </thead>
         <tbody class="table-group-divider">
-        {% for addr, obj, retained_heap_size in objects %}
+        {% for addr, retained_heap_size in objects_to_render %}
         <tr>
-            <td><a href="/objects/{{ addr }}" title="Address: {{ addr }}"><i class="bi bi-link-45deg"></i></a></td>
-            <td><code>{{ types[obj.type] }}</code></td>
+            <td>{{ render_object_link(addr) }}</td>
+            <td><code>{{ types[objects[addr].type] }}</code></td>
             <td>{{ retained_heap_size | big_number | safe }}</td>
             {% if with_str_repr %}
-                {% if obj.str_repr|length > 255 %}
-                <td><span>{{ obj.str_repr|truncate(255, end="") }} <a title="Expand" onclick="toggleFullText(event)" href="#">...</a></span>
-                    <span style="display: none;">{{ obj.str_repr }}</span>
+                {% if objects[addr].str_repr|length > 255 %}
+                <td><span>{{ objects[addr].str_repr|truncate(255, end="") }} <a title="Expand" onclick="toggleFullText(event)" href="#">...</a></span>
+                    <span style="display: none;">{{ objects[addr].str_repr }}</span>
                 </td>
                 {% else %}
-                <td>{{ obj.str_repr }}</td>
+                <td>{{ objects[addr].str_repr }}</td>
                 {% endif %}
             {% endif %}
         </tr>
@@ -119,19 +98,9 @@
         </tbody>
     </table>
 
-    {{ render_pagination() }}
+    {{ render_pagination(pagination) }}
 </div>
 {% endblock %}
 
 {% block script %}
-<script>
-function toggleFullText(event) {
-    const a = event.target;
-    const shortTextSpan = a.parentElement;
-    const longTextSpan = shortTextSpan.nextElementSibling;
-    shortTextSpan.remove();
-    longTextSpan.style.display = 'block';
-    event.preventDefault();
-}
-</script>
 {% endblock %}

@@ -13,7 +13,7 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
-{% from 'objects_base_macros.j2' import render_object_link %}
+{% from 'common_macros.j2' import render_object_link %}
 
 {% macro render_element(address, objects, retained_heap, types) -%}
 {% if address in objects %}
