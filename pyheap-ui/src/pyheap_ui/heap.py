@@ -27,8 +27,9 @@ from collections import Counter
 from multiprocessing import Pool
 from pathlib import Path
 from typing import Mapping, Set, Dict, List, Tuple, Optional, NamedTuple
+from tqdm import tqdm
 
-from pyheap_ui.heap_reader import Heap, HeapObject
+from pyheap_ui.heap_reader import Heap
 from pyheap_ui.heap_types import ObjectDict, ThreadName, Address, JsonObject
 
 LOG = logging.getLogger("heap")
@@ -77,20 +78,6 @@ class RetainedHeap:
         return self._object_retained_heap == o._object_retained_heap
 
 
-class ETA:
-    def __init__(self, total: int) -> None:
-        self._remain = total
-        self._previous_avgs = []
-
-    def make_step(self, size: int, duration: float) -> None:
-        self._remain -= size
-        self._previous_avgs.append(duration / size)
-
-    def eta(self) -> float:
-        avg_duration = sum(self._previous_avgs) / len(self._previous_avgs)
-        return avg_duration * max(0, self._remain)
-
-
 class InboundReferences:
     def __init__(self, objects: ObjectDict) -> None:
         self._inbound_references = self._index_inbound_references(objects)
@@ -122,10 +109,17 @@ class InboundReferences:
 
 
 class RetainedHeapCalculator:
-    def __init__(self, heap: Heap, inbound_references: InboundReferences) -> None:
+    def __init__(
+        self,
+        *,
+        heap: Heap,
+        inbound_references: InboundReferences,
+        progress_bar: bool = False,
+    ) -> None:
         self._calculated = False
         self._heap = heap
         self._inbound_references = inbound_references
+        self._progress_bar = progress_bar
         self._subtree_roots = set()
         self._object_retained_heap: Dict[Address, int] = {}
         self._thread_retained_heap: Dict[ThreadName, int] = {}
@@ -286,26 +280,18 @@ class RetainedHeapSequentialCalculator(RetainedHeapCalculator):
         LOG.info("Calculating retained heap for objects sequentially")
         global_start = time.monotonic()
 
-        total = len(self._heap.objects)
-        step_size = 10_000
-        eta = ETA(total)
-
         addresses = list(self._heap.objects.keys())
         random.shuffle(addresses)
 
-        start = time.monotonic()
-        for i, addr in enumerate(addresses):
-            if i % step_size == 0 and i > 0:
-                step_duration = time.monotonic() - start
-                eta.make_step(step_size, step_duration)
-                start = time.monotonic()
-                LOG.info(
-                    "Done %r / %r, took %.2f s, ETA %.2f s",
-                    i,
-                    total,
-                    step_duration,
-                    eta.eta(),
-                )
+        iterator = addresses
+        if self._progress_bar:
+            iterator = tqdm(
+                iterator,
+                desc="Calculating retained heap",
+                unit="objects",
+                total=len(addresses),
+            )
+        for i, addr in enumerate(iterator):
             self._object_retained_heap[addr] = self._retained_heap_for_object(
                 addr=addr, use_subtrees=True
             )
@@ -322,26 +308,19 @@ class RetainedHeapParallelCalculator(RetainedHeapCalculator):
         global_start = time.monotonic()
 
         addresses = list(self._heap.objects.keys())
-        total = len(addresses)
         random.shuffle(addresses)
         chunk_size = 10_000
-        eta = ETA(total)
 
         with Pool() as pool:
-            r = pool.imap_unordered(self._work, addresses, chunksize=chunk_size)
-            start = time.monotonic()
-            for i, (addr, retained_heap_size) in enumerate(r):
-                if i % chunk_size == 0 and i > 0:
-                    step_duration = time.monotonic() - start
-                    eta.make_step(chunk_size, step_duration)
-                    start = time.monotonic()
-                    LOG.info(
-                        "Done %r / %r, took %.2f s, ETA %.2f s",
-                        i,
-                        total,
-                        step_duration,
-                        eta.eta(),
-                    )
+            iterator = pool.imap_unordered(self._work, addresses, chunksize=chunk_size)
+            if self._progress_bar:
+                iterator = tqdm(
+                    iterator,
+                    desc="Calculating retained heap",
+                    unit="objects",
+                    total=len(addresses),
+                )
+            for i, (addr, retained_heap_size) in enumerate(iterator):
                 self._object_retained_heap[addr] = retained_heap_size
 
         LOG.info(
@@ -399,9 +378,13 @@ def provide_retained_heap_with_caching(
 
     parallel_retained_heap_calculation = False
     if parallel_retained_heap_calculation:
-        calculator = RetainedHeapParallelCalculator(heap, inbound_references)
+        calculator = RetainedHeapParallelCalculator(
+            heap=heap, inbound_references=inbound_references, progress_bar=True
+        )
     else:
-        calculator = RetainedHeapSequentialCalculator(heap, inbound_references)
+        calculator = RetainedHeapSequentialCalculator(
+            heap=heap, inbound_references=inbound_references, progress_bar=True
+        )
     retained_heap = calculator.calculate()
 
     cache.store(retained_heap)
