@@ -13,4 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-inferior-simple.py
+FROM python:3.10.8-bullseye
+
+RUN groupadd -g 10042 testgroup && useradd --uid 10123 testuser -g testgroup --create-home
+
+ADD --chown=testuser:testgroup https://install.python-poetry.org /home/testuser/poetry-install.py
+
+USER testuser
+RUN python3 /home/testuser/poetry-install.py
+
+COPY ./ /inferiors/
+WORKDIR /inferiors
+
+ENV PATH="/home/testuser/.local/bin:$PATH"
+
+RUN poetry install

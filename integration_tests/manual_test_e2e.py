@@ -13,23 +13,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import json
 import mmap
 import os
 import subprocess
 import sys
 import time
 from contextlib import contextmanager, closing
-from typing import Iterator, Union
+from typing import Iterator, Union, Optional
 import pytest
 from _pytest.tmpdir import TempPathFactory
 from pyheap_ui.heap_reader import HeapReader
 
 
-@pytest.mark.parametrize("docker", [False, True])
-def test_e2e(docker: bool, test_heap_path: str) -> None:
-    with _inferior_process(docker) as ip_pid_or_container, _dumper_process(
-        test_heap_path, ip_pid_or_container, docker
+@pytest.mark.parametrize("docker_base", ["alpine", "debian", "ubuntu", "fedora", None])
+def test_e2e(docker_base: Optional[str], test_heap_path: str) -> None:
+    is_docker = docker_base is not None
+    with _inferior_process(docker_base) as ip_pid_or_container, _dumper_process(
+        test_heap_path, ip_pid_or_container, is_docker
     ) as dp:
         print(f"Inferior process/container {ip_pid_or_container}")
         print(f"Dumper process {dp.pid}")
@@ -72,7 +72,7 @@ def _inferior_process_plain() -> Iterator[int]:
 
 
 @contextmanager
-def _inferior_process_docker() -> Iterator[str]:
+def _inferior_process_docker(docker_base: str) -> Iterator[str]:
     python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
     docker_proc = subprocess.run(
         [
@@ -80,7 +80,7 @@ def _inferior_process_docker() -> Iterator[str]:
             "run",
             "--rm",
             "--detach",
-            f"ivanyu/pyheap-e2e-test-target:{python_version}",
+            f"ivanyu/pyheap-e2e-test-target:{docker_base}-{python_version}",
         ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -103,9 +103,9 @@ def _inferior_process_docker() -> Iterator[str]:
 
 
 @contextmanager
-def _inferior_process(docker: bool) -> Iterator[Union[int, str]]:
-    if docker:
-        with _inferior_process_docker() as r:
+def _inferior_process(docker_base: Optional[str]) -> Iterator[Union[int, str]]:
+    if docker_base is not None:
+        with _inferior_process_docker(docker_base) as r:
             yield r
     else:
         with _inferior_process_plain() as r:
