@@ -18,29 +18,41 @@
 clean:
 	rm e2e_docker/inferior-simple.py
 
-.PHONY: test_target_docker_image_3_8
-test_target_docker_image_3_8: e2e_docker/inferior-simple.py
+define build_image
 	docker build e2e_docker \
-		--build-arg BASE_VERSION="3.8.15-bullseye" \
-		--tag ivanyu/pyheap-e2e-test-target:3.8
+		-f "e2e_docker/$2.Dockerfile" \
+		--build-arg BASE_IMAGE_VERSION="$3" \
+		--build-arg PYHEAP_PYTHON_VERSION="$1" \
+		--tag "ivanyu/pyheap-e2e-test-target:$2-$1"
+endef
 
-.PHONY: test_target_docker_image_3_9
-test_target_docker_image_3_9: e2e_docker/inferior-simple.py
-	docker build e2e_docker \
-		--build-arg BASE_VERSION="3.9.15-bullseye" \
-		--tag ivanyu/pyheap-e2e-test-target:3.9
+.PHONY: test-target-docker-images-3-8
+test-target-docker-images-3-8: e2e_docker/inferior-simple.py
+	$(call build_image,3.8,alpine,3.8.15-alpine3.16)
+	$(call build_image,3.8,debian,3.8.15-slim-bullseye)
+	$(call build_image,3.8,ubuntu,22.04)
+	$(call build_image,3.8,fedora,36)
 
-.PHONY: test_target_docker_image_3_10
-test_target_docker_image_3_10: e2e_docker/inferior-simple.py
-	docker build e2e_docker \
-		--build-arg BASE_VERSION="3.10.8-bullseye" \
-		--tag ivanyu/pyheap-e2e-test-target:3.10
+.PHONY: test-target-docker-images-3-9
+test-target-docker-images-3-9: e2e_docker/inferior-simple.py
+	$(call build_image,3.9,alpine,3.9.15-alpine3.16)
+	$(call build_image,3.9,debian,3.9.15-slim-bullseye)
+	$(call build_image,3.9,ubuntu,22.04)
+	$(call build_image,3.9,fedora,36)
 
-.PHONY: test_target_docker_image_3_11
-test_target_docker_image_3_11: e2e_docker/inferior-simple.py
-	docker build e2e_docker \
-		--build-arg BASE_VERSION="3.11.0-bullseye" \
-		--tag ivanyu/pyheap-e2e-test-target:3.11
+.PHONY: test-target-docker-images-3-10
+test-target-docker-images-3-10: e2e_docker/inferior-simple.py
+	$(call build_image,3.10,alpine,3.10.8-alpine3.16)
+	$(call build_image,3.10,debian,3.10.8-slim-bullseye)
+	$(call build_image,3.10,ubuntu,22.04)
+	$(call build_image,3.10,fedora,36)
+
+.PHONY: test-target-docker-images-3-11
+test-target-docker-images-3-11: e2e_docker/inferior-simple.py
+	$(call build_image,3.11,alpine,3.11.0-alpine3.16)
+	$(call build_image,3.11,debian,3.11.0-slim-bullseye)
+	$(call build_image,3.11,ubuntu,22.04)
+	$(call build_image,3.11,fedora,36)
 
 e2e_docker/inferior-simple.py:
 	cp ../test_inferiors/inferior-simple.py $@

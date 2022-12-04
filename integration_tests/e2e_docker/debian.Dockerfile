@@ -13,4 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-inferior-simple.py
+ARG BASE_IMAGE_VERSION
+FROM python:$BASE_IMAGE_VERSION
+
+ARG PYHEAP_PYTHON_VERSION
+
+COPY inferior-simple.py /inferior-simple.py
+
+RUN ln -s $(which "python${PYHEAP_PYTHON_VERSION}") /test-python
+CMD ["/test-python", "/inferior-simple.py"]

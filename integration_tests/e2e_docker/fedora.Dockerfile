@@ -13,4 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-inferior-simple.py
+ARG BASE_IMAGE_VERSION
+FROM fedora:$BASE_IMAGE_VERSION
+
+ARG PYHEAP_PYTHON_VERSION
+
+RUN dnf -y update && dnf install -y \
+        "python${PYHEAP_PYTHON_VERSION}" \
+        which \
+    && dnf clean all
+
+COPY inferior-simple.py /inferior-simple.py
+
+RUN ln -s $(which "python${PYHEAP_PYTHON_VERSION}") /test-python
+CMD ["/test-python", "/inferior-simple.py"]

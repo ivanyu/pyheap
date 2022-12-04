@@ -18,43 +18,43 @@
 clean:
 	(cd pyheap && $(MAKE) clean)
 
-.PHONY: integration_tests
-integration_tests: integration_tests_3_8 integration_tests_3_9 integration_tests_3_10 integration_tests_3_11
+.PHONY: integration-tests
+integration-tests: integration-tests-3-8 integration-tests-3-9 integration-tests-3-10 integration-tests-3-11
 
 pyheap/dist/pyheap_dump.pyz:
 	(cd pyheap && $(MAKE) dist)
 
-.PHONY: integration_tests_3_8
-integration_tests_3_8: pyheap/dist/pyheap_dump.pyz
+.PHONY: integration-tests-3-8
+integration-tests-3-8: pyheap/dist/pyheap_dump.pyz
 	(cd integration_tests && \
-	  $(MAKE) test_target_docker_image_3_8 && \
+	  $(MAKE) test-target-docker-images-3-8 && \
 	  PYENV_VERSION=3.8 poetry env use python && \
 	  poetry run pip install -e ../pyheap-ui/ && \
 	  poetry install && \
 	  poetry run pytest -vv ./*.py)
 
-.PHONY: integration_tests_3_9
-integration_tests_3_9: pyheap/dist/pyheap_dump.pyz
+.PHONY: integration-tests-3-9
+integration-tests-3-9: pyheap/dist/pyheap_dump.pyz
 	(cd integration_tests && \
-	  $(MAKE) test_target_docker_image_3_9 && \
+	  $(MAKE) test-target-docker-images-3-9 && \
 	  PYENV_VERSION=3.9 poetry env use python && \
 	  poetry run pip install -e ../pyheap-ui/ && \
 	  poetry install && \
 	  poetry run pytest -vv ./*.py)
 
-.PHONY: integration_tests_3_10
-integration_tests_3_10: pyheap/dist/pyheap_dump.pyz
+.PHONY: integration-tests-3-10
+integration-tests-3-10: pyheap/dist/pyheap_dump.pyz
 	(cd integration_tests && \
-	  $(MAKE) test_target_docker_image_3_10 && \
+	  $(MAKE) test-target-docker-images-3-10 && \
 	  PYENV_VERSION=3.10 poetry env use python && \
 	  poetry run pip install -e ../pyheap-ui/ && \
 	  poetry install && \
 	  poetry run pytest -vv ./*.py)
 
-.PHONY: integration_tests_3_11
-integration_tests_3_11: pyheap/dist/pyheap_dump.pyz
+.PHONY: integration-tests-3-11
+integration-tests-3-11: pyheap/dist/pyheap_dump.pyz
 	(cd integration_tests && \
-	  $(MAKE) test_target_docker_image_3_11 && \
+	  $(MAKE) test-target-docker-images-3-11 && \
 	  PYENV_VERSION=3.11 poetry env use python && \
 	  poetry run pip install -e ../pyheap-ui/ && \
 	  poetry install && \

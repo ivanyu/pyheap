@@ -13,4 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-inferior-simple.py
+
+.PHONY: docker-images
+docker-images: docker-image-alpine docker-image-debian
+
+.PHONY: docker-image-alpine
+docker-image-alpine:
+	docker build . -f alpine.Dockerfile -t ivanyu/pyheap-test-inferiors:alpine
+
+.PHONY: docker-image-debian
+docker-image-debian:
+	docker build . -f debian.Dockerfile -t ivanyu/pyheap-test-inferiors:debian

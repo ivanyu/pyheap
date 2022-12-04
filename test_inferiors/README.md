@@ -14,14 +14,15 @@ poetry run python inferior-sqlalchemy.py
 poetry run jupyter-lab
 ```
 
-These can be run in Docker. Build the image:
+These can be run in Docker. Build the images:
 ```commandline
-docker build . -t ivanyu/pyheap-test-inferiors
+make docker-images
 ```
 
 and run with one of the above commands:
 
 ```commandline
-docker run --rm -ti ivanyu/pyheap-test-inferiors \
+docker run --rm -ti ivanyu/pyheap-test-inferiors:alpine \
   poetry run python inferior-simple.py
 ```
+Use the `alpine` or `debian` tag.

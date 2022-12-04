@@ -13,4 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-inferior-simple.py
+ARG BASE_IMAGE_VERSION
+FROM ubuntu:$BASE_IMAGE_VERSION
+
+ARG PYHEAP_PYTHON_VERSION
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
+RUN apt-get update \
+    && apt-get install -y software-properties-common \
+    && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt-get install -y "python${PYHEAP_PYTHON_VERSION}" \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY inferior-simple.py /inferior-simple.py
+
+RUN ln -s $(which "python${PYHEAP_PYTHON_VERSION}") /test-python
+CMD ["/test-python", "/inferior-simple.py"]
