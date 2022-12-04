@@ -43,9 +43,9 @@ def solib_search_paths(pid: int, pid_in_ns: int) -> List[str]:
                 ):
                     libpthread_path = path
     except PermissionError as e:
-        print(e)
-        print("Hint: the target process is likely run under a different user, use sudo")
-        raise e
+        raise Exception(
+            "Hint: the target process is likely run under a different user, use sudo"
+        ) from e
 
     dirs = set()
     if libc_path is not None:
@@ -82,7 +82,13 @@ def shadow_target_exe_dir_for_gdb(target_pid: int, temp_dir: str) -> None:
     This function basically bind-mounts an empty directory over the target file parent directory (e.g. ``/usr/bin``) in
     the dumper namespace.
     """
-    target_exe = os.readlink(f"/proc/{target_pid}/exe")
+    try:
+        target_exe = os.readlink(f"/proc/{target_pid}/exe")
+    except PermissionError as e:
+        raise Exception(
+            "Hint: the target process is likely run under a different user, use sudo"
+        ) from e
+
     if os.path.exists(target_exe):
         print(
             f"Target exe link resolves to {target_exe}, which exists in our namespace"
