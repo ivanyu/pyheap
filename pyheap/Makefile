@@ -14,22 +14,30 @@
 # limitations under the License.
 #
 
-version := $(shell cat pyproject.toml | grep version | head -n 1 | sed -e 's/version = //g' | sed -e s/\"//g)
-
 all: check dist
 
-dist: dist/pyheap-$(version).tar.gz dist/pyheap_dump.pyz
+dist: dist/pyheap_dump
 	@echo "Distribution built: $^"
 
-dist/pyheap-$(version).tar.gz: src/dumper_inferior.py src/injector.py src/pyheap_dump.py
+dist/pyheap_dump: build/requirements.txt build/src/*.py
 	mkdir -p dist
-	tar --transform='s/src\//pyheap\//g' -czf $@ $^
+	poetry run pex \
+		--requirement=build/requirements.txt \
+		--sources-directory=build/src \
+		--entry-point=pyheap_dump:main \
+		--output-file=$@
 
-dist/pyheap_dump.pyz: src
-	mkdir -p dist
-	python3 -m zipapp src -m pyheap_dump:main --output=$@
+build/requirements.txt: poetry.lock
+	mkdir -p build/
+	poetry export --without-hashes --format=requirements.txt > build/requirements.txt
+
+build/src/%.py: src/%.py
+	git ls-files --error-unmatch $^
+	mkdir -p build/src
+	cp $^ build/src
 
 clean:
+	rm -rf build
 	rm -rf dist
 
 check: black-check test
