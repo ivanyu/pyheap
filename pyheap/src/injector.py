@@ -154,7 +154,7 @@ class DumpPythonHeap(gdb.Function):
             f'(void*) PyRun_String("{code_char_string}", {Py_file_input}, {globals_dict.ptr}, {locals_ptr})'
         )
         if self._result_ptr == _NULL:
-            raise InjectorException("Error calling PyEval_EvalCode")
+            raise InjectorException("Error calling PyRun_String")
         else:
             # Doc: https://docs.python.org/3/c-api/refcounting.html#c.Py_DecRef
             gdb.parse_and_eval(f"(void) Py_DecRef({self._result_ptr})")
