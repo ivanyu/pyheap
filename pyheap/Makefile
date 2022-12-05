@@ -19,7 +19,7 @@ all: check dist
 dist: dist/pyheap_dump
 	@echo "Distribution built: $^"
 
-dist/pyheap_dump: build/requirements.txt build/src/*.py
+dist/pyheap_dump: build/requirements.txt build-src
 	mkdir -p dist
 	poetry run pex \
 		--requirement=build/requirements.txt \
@@ -31,8 +31,10 @@ build/requirements.txt: poetry.lock
 	mkdir -p build/
 	poetry export --without-hashes --format=requirements.txt > build/requirements.txt
 
-build/src/%.py: src/%.py
+.PHONY: build-src
+build-src: src/*.py
 	git ls-files --error-unmatch $^
+	rm -rf build/src
 	mkdir -p build/src
 	cp $^ build/src
 

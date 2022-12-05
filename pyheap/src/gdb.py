@@ -22,30 +22,23 @@ from pathlib import Path
 from typing import List, Optional, Iterator
 
 import mount
+from proc import proc_maps
 
 
 def solib_search_paths(pid: int, pid_in_ns: int) -> List[str]:
     # libc (isn't used in e.g. Alpine Linux) and libpthread (maybe not loaded) are optional.
     libc_path: Optional[str] = None
     libpthread_path: Optional[str] = None
-    try:
-        with open(f"/proc/{pid}/maps", "r") as f:
-            for l in f.readlines():
-                parts = re.split("\s+", l.strip())
-                if len(parts) != 6:
-                    continue
-
-                path = parts[-1]
-                if libc_path is None and re.search(r"libc(-[\d.]+)?\.so(\.|$)", path):
-                    libc_path = path
-                if libpthread_path is None and re.search(
-                    r"libpthread(-[\d.]+)?\.so(\.|$)", path
-                ):
-                    libpthread_path = path
-    except PermissionError as e:
-        raise Exception(
-            "Hint: the target process is likely run under a different user, use sudo"
-        ) from e
+    for parts in proc_maps(pid):
+        if len(parts) != 6:
+            continue
+        path = parts[-1]
+        if libc_path is None and re.search(r"libc(-[\d.]+)?\.so(\.|$)", path):
+            libc_path = path
+        if libpthread_path is None and re.search(
+            r"libpthread(-[\d.]+)?\.so(\.|$)", path
+        ):
+            libpthread_path = path
 
     dirs = set()
     if libc_path is not None:
