@@ -95,9 +95,17 @@ def unshare_and_mount_proc() -> None:
 
 @contextlib.contextmanager
 def _pid_namespace(pid: int) -> Iterator[int]:
-    fd = os.open(f"/proc/{pid}/ns/pid", os.O_RDONLY)
-    yield fd
-    os.close(fd)
+    try:
+        fd = os.open(f"/proc/{pid}/ns/pid", os.O_RDONLY)
+    except PermissionError as e:
+        raise Exception(
+            "Hint: the target process is likely run under a different user, use sudo"
+        ) from e
+
+    try:
+        yield fd
+    finally:
+        os.close(fd)
 
 
 def two_processes_in_same_pid_namespace(
@@ -110,17 +118,22 @@ def _read_pid_namespace_link(pid: Union[int, str]) -> str:
     try:
         return os.readlink(f"/proc/{pid}/ns/pid")
     except PermissionError as e:
-        print(e)
-        print("Hint: the target process is likely run under a different user, use sudo")
-        raise e
+        raise Exception(
+            "Hint: the target process is likely run under a different user, use sudo"
+        ) from e
 
 
 def pid_in_own_namespace(pid: Union[int, str]) -> int:
     """Finds the PID of a process in its own PID namespace."""
-    with open(f"/proc/{pid}/status", "r") as f:
-        for line in f.readlines():
-            line = line.strip()
-            if line.startswith("NStgid"):
-                return int(line.split("\t")[-1].strip())
-        else:
-            raise Exception("Cannot determine target process PID in its namespace")
+    try:
+        with open(f"/proc/{pid}/status", "r") as f:
+            for line in f.readlines():
+                line = line.strip()
+                if line.startswith("NStgid"):
+                    return int(line.split("\t")[-1].strip())
+            else:
+                raise Exception("Cannot determine target process PID in its namespace")
+    except PermissionError as e:
+        raise Exception(
+            "Hint: the target process is likely run under a different user, use sudo"
+        ) from e
