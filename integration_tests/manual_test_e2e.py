@@ -120,7 +120,7 @@ def _dumper_process(
     cmd = []
     if sudo_required:
         cmd = ["sudo"]
-    cmd += [sys.executable, "dist/pyheap_dump.pyz"]
+    cmd += [sys.executable, "dist/pyheap_dump"]
 
     if docker:
         cmd += ["--docker-container", str(pid_or_container)]

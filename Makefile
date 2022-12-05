@@ -21,11 +21,11 @@ clean:
 .PHONY: integration-tests
 integration-tests: integration-tests-3-8 integration-tests-3-9 integration-tests-3-10 integration-tests-3-11
 
-pyheap/dist/pyheap_dump.pyz:
+pyheap/dist/pyheap_dump:
 	(cd pyheap && $(MAKE) dist)
 
 .PHONY: integration-tests-3-8
-integration-tests-3-8: pyheap/dist/pyheap_dump.pyz
+integration-tests-3-8: pyheap/dist/pyheap_dump
 	(cd integration_tests && \
 	  $(MAKE) test-target-docker-images-3-8 && \
 	  PYENV_VERSION=3.8 poetry env use python && \
@@ -34,7 +34,7 @@ integration-tests-3-8: pyheap/dist/pyheap_dump.pyz
 	  poetry run pytest -vv ./*.py)
 
 .PHONY: integration-tests-3-9
-integration-tests-3-9: pyheap/dist/pyheap_dump.pyz
+integration-tests-3-9: pyheap/dist/pyheap_dump
 	(cd integration_tests && \
 	  $(MAKE) test-target-docker-images-3-9 && \
 	  PYENV_VERSION=3.9 poetry env use python && \
@@ -43,7 +43,7 @@ integration-tests-3-9: pyheap/dist/pyheap_dump.pyz
 	  poetry run pytest -vv ./*.py)
 
 .PHONY: integration-tests-3-10
-integration-tests-3-10: pyheap/dist/pyheap_dump.pyz
+integration-tests-3-10: pyheap/dist/pyheap_dump
 	(cd integration_tests && \
 	  $(MAKE) test-target-docker-images-3-10 && \
 	  PYENV_VERSION=3.10 poetry env use python && \
@@ -52,7 +52,7 @@ integration-tests-3-10: pyheap/dist/pyheap_dump.pyz
 	  poetry run pytest -vv ./*.py)
 
 .PHONY: integration-tests-3-11
-integration-tests-3-11: pyheap/dist/pyheap_dump.pyz
+integration-tests-3-11: pyheap/dist/pyheap_dump
 	(cd integration_tests && \
 	  $(MAKE) test-target-docker-images-3-11 && \
 	  PYENV_VERSION=3.11 poetry env use python && \

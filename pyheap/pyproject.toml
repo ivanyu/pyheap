@@ -6,11 +6,12 @@ authors = ["Ivan Yurchenko <ivan@ivanyu.me>"]
 license = "Apache License 2.0"
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = ">=3.8,<3.12"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1"
 black = "^22.6"
+pex = "^2.1"
 
 [tool.pytest.ini_options]
 addopts = [

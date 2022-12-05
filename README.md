@@ -39,7 +39,7 @@ Find the PID of a running CPython process you're interested in.
 
 Run:
 ```bash
-$ python3 pyheap_dump.pyz --pid <pid> --file heap.pyheap
+$ ./pyheap_dump --pid <pid> --file heap.pyheap
 ```
 
 The heap file is written by the target process in its `/tmp`, but is moved subsequently under the specified path.
@@ -48,7 +48,7 @@ If the target process belongs to a different user, use `sudo`.
 
 See 
 ```bash
-$ python3 pyheap_dump.pyz -h
+$ ./pyheap_dump -h
 ```
 for additional options.
 
@@ -61,12 +61,12 @@ PyHeap can attach to targets that are running in Linux namespaces. Docker contai
 If you want to use PyHeap on the root process in a Docker container, use `--docker-container` instead of `--pid/-p` and specify the name or ID:
 
 ```bash
-$ sudo python3 pyheap_dump.pyz --docker-container <container_name> --file heap.pyheap
+$ sudo ./pyheap_dump --docker-container <container_name> --file heap.pyheap
 ```
 
 If it's not the root process in the container, or you work with another container system (e.g. systemd-nspawn) or just generic Linux namespaces, you need to find the target PID. Please mind that this must be the PID from the dumper point of view: processes in namespaces can have their own PID numbers. For example, if you're about to run the dumper on a Linux host and the target process is running in a container, check the process list with `ps` or `top` on the host. Use `--pid/-p` for the dumper.
 
-If the target process is running under a different user (normal for Docker), you need to use `sudo` with `python3 pyheap_dump.pyz ...`.
+If the target process is running under a different user (normal for Docker), you need to use `sudo` with `./pyheap_dump ...`.
 
 PyHeap dumper will automatically transfer the heap file from the target namespace to the specified location.
 
