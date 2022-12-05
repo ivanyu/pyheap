@@ -135,6 +135,14 @@ dev = ["pre-commit", "tox"]
 testing = ["pytest", "pytest-benchmark"]
 
 [[package]]
+name = "pyelftools"
+version = "0.29"
+description = "Library for analyzing ELF files and DWARF debugging information"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "pyparsing"
 version = "3.0.9"
 description = "pyparsing module - Classes and methods to define and execute parsing grammars"
@@ -184,7 +192,7 @@ python-versions = ">=3.7"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8,<3.12"
-content-hash = "738ff39ca5d80f594c6c4470378a70b7b3ec5e13ed831637cc8338fdbafc2668"
+content-hash = "3ef9944e055c468109758ccacec35e9e26d8998931714856b4cae248546e08fe"
 
 [metadata.files]
 attrs = [
@@ -253,6 +261,10 @@ platformdirs = [
 pluggy = [
     {file = "pluggy-1.0.0-py2.py3-none-any.whl", hash = "sha256:74134bbf457f031a36d68416e1509f34bd5ccc019f0bcc952c7b909d06b37bd3"},
     {file = "pluggy-1.0.0.tar.gz", hash = "sha256:4224373bacce55f955a878bf9cfa763c1e360858e330072059e10bad68531159"},
+]
+pyelftools = [
+    {file = "pyelftools-0.29-py2.py3-none-any.whl", hash = "sha256:519f38cf412f073b2d7393aa4682b0190fa901f7c3fa0bff2b82d537690c7fc1"},
+    {file = "pyelftools-0.29.tar.gz", hash = "sha256:ec761596aafa16e282a31de188737e5485552469ac63b60cfcccf22263fd24ff"},
 ]
 pyparsing = [
     {file = "pyparsing-3.0.9-py3-none-any.whl", hash = "sha256:5026bae9a10eeaefb61dab2f09052b9f4307d44aee4eda64b309723d8d206bbc"},

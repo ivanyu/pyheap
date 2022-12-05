@@ -38,6 +38,7 @@ from typing import (
     ContextManager,
 )
 
+from constants import PY_EVAL_EVAL_FRAME_DEFAULT
 from docker import get_container_pid
 from gdb import solib_search_paths, bind_gdb_exe, shadow_target_exe_dir_for_gdb
 from namespaces import (
@@ -46,6 +47,7 @@ from namespaces import (
     two_processes_in_same_pid_namespace,
     pid_in_own_namespace,
 )
+from python_checker import check_if_python
 
 
 def dump_heap(args: argparse.Namespace) -> int:
@@ -70,6 +72,17 @@ def dump_heap(args: argparse.Namespace) -> int:
         target_pid_in_ns = pid_in_own_namespace(target_pid)
         print(f"Target process PID in its own namespace: {target_pid_in_ns}")
         nsenter_needed = True
+
+    if not check_if_python(target_pid):
+        if args.ignore_compatibility_checks:
+            print(
+                "Target process does not look like Python. --ignore-compatibility-checks is specified, ignoring"
+            )
+        else:
+            print(
+                "Target process does not look like Python. If you are sure, use --ignore-compatibility-checks"
+            )
+            return 1
 
     solid_search_paths = ":".join(solib_search_paths(target_pid, target_pid_in_ns))
 
@@ -117,7 +130,7 @@ def dump_heap(args: argparse.Namespace) -> int:
             "-iex",
             "set debuginfod enabled off",
             "-ex",
-            "break _PyEval_EvalFrameDefault",
+            f"break {PY_EVAL_EVAL_FRAME_DEFAULT}",
             "-ex",
             "continue",
             "-ex",
@@ -295,6 +308,14 @@ def main() -> None:
         help="max length of string representation of objects (-1 disables it)",
         default=1000,
     )
+
+    parser.add_argument(
+        "--ignore-compatibility-checks",
+        action="store_true",
+        default=False,
+        help="ignore various compatibility checks for the target process",
+    )
+
     parser.set_defaults(func=dump_heap)
 
     args = parser.parse_args()
