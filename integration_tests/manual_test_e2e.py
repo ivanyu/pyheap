@@ -19,32 +19,41 @@ import subprocess
 import sys
 import time
 from contextlib import contextmanager, closing
-from typing import Iterator, Union, Optional
+from pathlib import Path
+from typing import Iterator, List
 import pytest
 from _pytest.tmpdir import TempPathFactory
 from pyheap_ui.heap_reader import HeapReader
 
 
-@pytest.mark.parametrize("docker_base", ["alpine", "debian", "ubuntu", "fedora", None])
-def test_e2e(docker_base: Optional[str], test_heap_path: str) -> None:
-    is_docker = docker_base is not None
-    with _inferior_process(docker_base) as ip_pid_or_container, _dumper_process(
-        test_heap_path, ip_pid_or_container, is_docker
-    ) as dp:
-        print(f"Inferior process/container {ip_pid_or_container}")
-        print(f"Dumper process {dp.pid}")
-        dp.wait(10)
-        assert dp.returncode == 0
+def test_e2e_target_host_dumper_host(test_heap_path: str) -> None:
+    with _target_process_host() as pid:
+        _dumper_on_host_for_host(test_heap_path, pid)
+        _check_heap_file(test_heap_path)
 
-    assert os.path.exists(test_heap_path)
 
-    with open(test_heap_path, "rb") as f:
-        mm = mmap.mmap(f.fileno(), length=0, access=mmap.ACCESS_READ)
-        with closing(mm):
-            reader = HeapReader(mm)
-            reader.read()
-            # Check that we have read everything.
-            assert reader._offset == mm.size()
+@pytest.mark.parametrize("target_docker_base", ["alpine", "debian", "ubuntu", "fedora"])
+def test_e2e_target_docker_dumper_host(
+    target_docker_base: str, test_heap_path: str
+) -> None:
+    with _target_process_docker(target_docker_base) as container_id:
+        _dumper_on_host_for_docker(test_heap_path, container_id)
+        _check_heap_file(test_heap_path)
+
+
+def test_e2e_target_host_dumper_docker(test_heap_path: str) -> None:
+    with _target_process_host() as pid:
+        _dumper_on_docker_for_host(test_heap_path, pid)
+        _check_heap_file(test_heap_path)
+
+
+@pytest.mark.parametrize("target_docker_base", ["alpine", "debian", "ubuntu", "fedora"])
+def test_e2e_target_docker_dumper_docker(
+    target_docker_base: str, test_heap_path: str
+) -> None:
+    with _target_process_docker(target_docker_base) as container_id:
+        _dumper_on_docker_for_docker(test_heap_path, container_id)
+        _check_heap_file(test_heap_path)
 
 
 @pytest.fixture(scope="function")
@@ -56,8 +65,19 @@ def test_heap_path(tmp_path_factory: TempPathFactory) -> str:
         os.remove(r)
 
 
+def _check_heap_file(test_heap_path: str) -> None:
+    assert os.path.exists(test_heap_path)
+    with open(test_heap_path, "rb") as f:
+        mm = mmap.mmap(f.fileno(), length=0, access=mmap.ACCESS_READ)
+        with closing(mm):
+            reader = HeapReader(mm)
+            reader.read()
+            # Check that we have read everything.
+            assert reader._offset == mm.size()
+
+
 @contextmanager
-def _inferior_process_plain() -> Iterator[int]:
+def _target_process_host() -> Iterator[int]:
     inferior_proc = subprocess.Popen(
         [sys.executable, "inferior-simple.py"],
         stdout=subprocess.PIPE,
@@ -72,7 +92,7 @@ def _inferior_process_plain() -> Iterator[int]:
 
 
 @contextmanager
-def _inferior_process_docker(docker_base: str) -> Iterator[str]:
+def _target_process_docker(docker_base: str) -> Iterator[str]:
     python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
     docker_proc = subprocess.run(
         [
@@ -84,69 +104,99 @@ def _inferior_process_docker(docker_base: str) -> Iterator[str]:
         ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
     )
     if docker_proc.returncode != 0:
-        print(docker_proc.stdout.decode("utf-8"))
-        print(docker_proc.stderr.decode("utf-8"))
+        print(docker_proc.stdout)
+        print(docker_proc.stderr)
     assert docker_proc.returncode == 0
 
-    container_id = docker_proc.stdout.decode("utf-8").strip()
+    container_id = docker_proc.stdout.strip()
 
     try:
         yield container_id
     finally:
-        subprocess.run(
-            ["docker", "kill", container_id],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
+        subprocess.check_call(["docker", "kill", container_id])
 
 
 @contextmanager
-def _inferior_process(docker_base: Optional[str]) -> Iterator[Union[int, str]]:
-    if docker_base is not None:
-        with _inferior_process_docker(docker_base) as r:
-            yield r
-    else:
-        with _inferior_process_plain() as r:
-            yield r
-
-
-@contextmanager
-def _dumper_process(
-    test_heap_path: str, pid_or_container: Union[int, str], docker: bool
-) -> Iterator[subprocess.Popen]:
-    sudo_required = docker
-    cmd = []
-    if sudo_required:
-        cmd = ["sudo"]
-    cmd += [sys.executable, "dist/pyheap_dump"]
-
-    if docker:
-        cmd += ["--docker-container", str(pid_or_container)]
-    else:
-        cmd += ["--pid", str(pid_or_container)]
+def _dumper_on_host_for_host(test_heap_path: str, pid: int) -> None:
+    cmd = [sys.executable, "../pyheap/dist/pyheap_dump"]
+    cmd += ["--pid", str(pid)]
     cmd += ["--file", test_heap_path]
+    _run_dumper(cmd, False, test_heap_path)
 
+
+@contextmanager
+def _dumper_on_host_for_docker(test_heap_path: str, container_id: str) -> None:
+    cmd = ["sudo"]
+    cmd += [sys.executable, "../pyheap/dist/pyheap_dump"]
+    cmd += ["--docker-container", container_id]
+    cmd += ["--file", test_heap_path]
+    _run_dumper(cmd, True, test_heap_path)
+
+
+@contextmanager
+def _dumper_on_docker_for_host(test_heap_path: str, pid: int) -> None:
+    test_heap_path_dir = Path(test_heap_path).parent
+    cmd = [
+        "docker",
+        "run",
+        "--rm",
+        "--pid=host",
+        "--cap-add=SYS_PTRACE",
+        "--volume",
+        f"{test_heap_path_dir}:/heap-dir",
+        "ivanyu/pyheap-dumper",
+        "--pid",
+        str(pid),
+        "--file",
+        "/heap-dir/heap.pyheap",
+    ]
+    _run_dumper(cmd, True, test_heap_path)
+
+
+@contextmanager
+def _dumper_on_docker_for_docker(test_heap_path: str, container_id: str) -> None:
+    test_heap_path_dir = Path(test_heap_path).parent
+    cmd = ["docker", "run", "--rm"]
+    cmd += [
+        f"--pid=container:{container_id}",
+        "--cap-add=SYS_PTRACE",
+        "--volume",
+        f"{test_heap_path_dir}:/heap-dir",
+        "ivanyu/pyheap-dumper",
+        "--pid",
+        "1",
+        "--file",
+        "/heap-dir/heap.pyheap",
+    ]
+    _run_dumper(cmd, True, test_heap_path)
+
+
+def _run_dumper(cmd: List[str], chown: bool, test_heap_path: str) -> None:
+    print(cmd)
     dumper_proc = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        cwd="../pyheap",
+        text=True,
+        encoding="utf-8",
     )
-    try:
-        yield dumper_proc
-    finally:
-        dumper_proc.kill()
-        out, err = dumper_proc.communicate(timeout=5)
-        print(out.decode("utf-8"))
-        print(err.decode("utf-8"))
 
-    if sudo_required:
-        chown_proc = subprocess.run(
+    try:
+        dumper_proc.wait(10)
+    except subprocess.TimeoutExpired as e:
+        dumper_proc.kill()
+        raise e
+
+    if dumper_proc.returncode != 0:
+        print(dumper_proc.stdout.read())
+        print(dumper_proc.stderr.read())
+    assert dumper_proc.returncode == 0
+
+    if chown:
+        subprocess.check_call(
             ["sudo", "chown", f"{os.getuid()}:{os.getgid()}", test_heap_path]
         )
-        if chown_proc.returncode != 0:
-            print(chown_proc.stdout.decode("utf-8"))
-            print(chown_proc.stderr.decode("utf-8"))
-        assert chown_proc.returncode == 0

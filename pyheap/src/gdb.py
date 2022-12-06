@@ -63,7 +63,7 @@ def bind_gdb_exe(gdb_exe: str, temp_dir: str) -> Iterator[str]:
         mount.umount(mounted)
 
 
-def shadow_target_exe_dir_for_gdb(target_pid: int, temp_dir: str) -> None:
+def shadow_target_exe_dir_for_gdb(target_pid: int, temp_dir: str, force: bool) -> None:
     """Shadows the target executable directory for GDB.
 
     There may be a situation, where ``self/pid/exe`` points to an executable inside
@@ -86,6 +86,8 @@ def shadow_target_exe_dir_for_gdb(target_pid: int, temp_dir: str) -> None:
         print(
             f"Target exe link resolves to {target_exe}, which exists in our namespace"
         )
+    elif force:
+        print("Shadowing is forced")
     else:
         return
     dir_to_shadow = str(Path(target_exe).parent)
