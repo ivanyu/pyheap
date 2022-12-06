@@ -38,6 +38,10 @@ build-src: src/*.py
 	mkdir -p build/src
 	cp $^ build/src
 
+.PHONY: docker-image
+docker-image: dist/pyheap_dump
+	docker build . -f Dockerfile -t ivanyu/pyheap-dumper
+
 clean:
 	rm -rf build
 	rm -rf dist

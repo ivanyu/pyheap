@@ -16,7 +16,7 @@
 
 .PHONY: clean
 clean:
-	rm e2e_docker/inferior-simple.py
+	rm -f e2e_docker/inferior-simple.py
 
 define build_image
 	docker build e2e_docker \

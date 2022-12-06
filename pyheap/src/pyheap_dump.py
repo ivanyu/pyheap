@@ -89,7 +89,7 @@ def dump_heap(args: argparse.Namespace) -> int:
     injector_code = _load_code("injector.py")
     dumper_code = _prepare_dumper_code()
 
-    if nsenter_needed:
+    if nsenter_needed or args.force_shadow:
         nsenter_to_pid_ns_with_fork(target_pid)
         unshare_and_mount_proc()
 
@@ -97,13 +97,13 @@ def dump_heap(args: argparse.Namespace) -> int:
         dumper_temp_dir = stack.enter_context(TemporaryDirectory(prefix="pyheap-"))
 
         gdb_exe = os.path.realpath(shutil.which("gdb"))
-        if nsenter_needed:
+        if nsenter_needed or args.force_shadow:
             gdb_exe = stack.enter_context(
                 cast(ContextManager[str], bind_gdb_exe(gdb_exe, dumper_temp_dir))
             )
-
-        if nsenter_needed:
-            shadow_target_exe_dir_for_gdb(target_pid_in_ns, dumper_temp_dir)
+            shadow_target_exe_dir_for_gdb(
+                target_pid_in_ns, dumper_temp_dir, force=args.force_shadow is True
+            )
 
         target_temp_dir = stack.enter_context(
             closing(TargetTemporaryDirectory(target_pid_in_ns))
@@ -314,6 +314,13 @@ def main() -> None:
         action="store_true",
         default=False,
         help="ignore various compatibility checks for the target process",
+    )
+
+    parser.add_argument(
+        "--force-shadow",
+        action="store_true",
+        default=False,
+        help="force shadowing of the Python executable directory (e.g. /usr/bin); nsenter + unshare will also be forced",
     )
 
     parser.set_defaults(func=dump_heap)

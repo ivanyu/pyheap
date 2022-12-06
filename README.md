@@ -52,6 +52,27 @@ $ python3 pyheap_dump -h
 ```
 for additional options.
 
+#### Running in a Docker Container
+
+The dumper also can be run in a Docker container.
+
+If the target process is also running in a Docker container, it's possible to attach the dumper container directly to it:
+
+```bash
+docker run \
+  --rm \
+  --pid=container:<container_name_or_id> \
+  --cap-add=SYS_PTRACE \
+  --volume $(pwd):/heap-dumps \
+  ivanyu/pyheap-dumper:latest \
+  --pid 1 \
+  --file /heap-dumps/heap.pyheap
+```
+
+You can replace `latest` with a release version.
+
+If you need to run it against a process on the host, use `--pid=host` instead.
+
 ### Containers and Namespaces
 
 PyHeap can attach to targets that are running in Linux namespaces. Docker containers is the most common example of this situation.
