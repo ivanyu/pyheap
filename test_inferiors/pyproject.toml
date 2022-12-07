@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "test_inferiors"
-version = "0.5.0"
+version = "0.6.0"
 description = ""
 authors = ["Ivan Yurchenko <ivan@ivanyu.me>"]
 readme = "README.md"
