@@ -6,6 +6,8 @@ The product consists of two parts:
 1. The dumper which uses GDB.
 2. The Flask-based UI for heap dump visualization.
 
+It does not require any modification to the target program code, CPython code or installation. A restart is also not needed. In case the target is dockerized, the container also doesn't need any modification.
+
 ## Requirements
 
 The dumper needs the following:
