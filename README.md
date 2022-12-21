@@ -19,6 +19,8 @@ The dumper needs the following:
 
 **Only Linux** is supported at the moment.
 
+The dumper has been tested on x86 (x86_64) and ARM (AArch64) processors.
+
 The dumper is compatible with a target process running on CPython 3.8 - 3.11.
 
 The target process were tested in the following OSes:
