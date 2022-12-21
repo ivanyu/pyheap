@@ -69,9 +69,10 @@ def retained_heap(args: argparse.Namespace) -> None:
         )
     )
     print("-" * terminal_columns)
-    for addr, obj, obj_retained_heap in objects_sorted_by_retained_heap(
-        heap, retained_heap
-    )[: args.top_n]:
+    for addr, obj_retained_heap in objects_sorted_by_retained_heap(heap, retained_heap)[
+        : args.top_n
+    ]:
+        obj = heap.objects[addr]
         type_ = heap.types[obj.type]
         print(
             row_format.format(
