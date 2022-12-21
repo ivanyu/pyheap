@@ -134,7 +134,7 @@ You need a Python installation with Flask to run it. There's a Poetry environmen
 
 To view the heap dump with the browser-based UI, go to [pyheap-ui/](pyheap-ui/) and run:
 ```bash
-PYTHONPATH=src poetry run python -m ui --file heap.pyheap
+PYTHONPATH=src poetry run python -m pyheap_ui --file heap.pyheap
 ```
 and open [http://127.0.0.1:5000](http://127.0.0.1:5000).
 
