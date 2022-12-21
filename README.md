@@ -19,6 +19,8 @@ The dumper needs the following:
 
 **Only Linux** is supported at the moment.
 
+The dumper has been tested on x86 (x86_64) and ARM (AArch64) processors.
+
 The dumper is compatible with a target process running on CPython 3.8 - 3.11.
 
 The target process were tested in the following OSes:
@@ -134,7 +136,7 @@ You need a Python installation with Flask to run it. There's a Poetry environmen
 
 To view the heap dump with the browser-based UI, go to [pyheap-ui/](pyheap-ui/) and run:
 ```bash
-PYTHONPATH=src poetry run python -m ui --file heap.pyheap
+PYTHONPATH=src poetry run python -m pyheap_ui --file heap.pyheap
 ```
 and open [http://127.0.0.1:5000](http://127.0.0.1:5000).
 
