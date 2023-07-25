@@ -27,7 +27,7 @@ dumper-docker-image:
 	(cd pyheap && $(MAKE) docker-image)
 
 .PHONY: integration-tests
-integration-tests: integration-tests-3-8 integration-tests-3-9 integration-tests-3-10 integration-tests-3-11
+integration-tests: integration-tests-3-8 integration-tests-3-9 integration-tests-3-10 integration-tests-3-11 integration-tests-3-12
 
 define run_integration_test
 	cd integration_tests && \
@@ -53,3 +53,7 @@ integration-tests-3-10: pyheap/dist/pyheap_dump dumper-docker-image
 .PHONY: integration-tests-3-11
 integration-tests-3-11: pyheap/dist/pyheap_dump dumper-docker-image
 	$(call run_integration_test,3.11,test-target-docker-images-3-11)
+
+.PHONY: integration-tests-3-12
+integration-tests-3-12: pyheap/dist/pyheap_dump dumper-docker-image
+	$(call run_integration_test,3.12,test-target-docker-images-3-12)

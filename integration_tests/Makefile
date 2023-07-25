@@ -54,5 +54,12 @@ test-target-docker-images-3-11: e2e_docker/inferior-simple.py
 	$(call build_image,3.11,ubuntu,22.04)
 	$(call build_image,3.11,fedora,36)
 
+.PHONY: test-target-docker-images-3-12
+test-target-docker-images-3-12: e2e_docker/inferior-simple.py
+	$(call build_image,3.12,alpine,3.12.0-alpine3.18)
+	$(call build_image,3.12,debian,3.12-slim-bullseye)
+	$(call build_image,3.12,ubuntu,23.10)
+	$(call build_image,3.12,fedora,39)
+
 e2e_docker/inferior-simple.py:
 	cp ../test_inferiors/inferior-simple.py $@

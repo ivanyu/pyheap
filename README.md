@@ -12,7 +12,7 @@ It does not require any modification to the target program code, CPython code or
 
 The dumper needs the following:
 1. GDB must be installed where the dumper runs (e.g. on the machine host), but is not needed near a target process (e.g. in a container).
-2. CPython 3.8 - 3.11.
+2. CPython 3.8 - 3.12.
 3. Docker CLI for working with Docker containers directly (e.g. calling `docker inspect`).
 
 ## Compatibility
@@ -21,7 +21,7 @@ The dumper needs the following:
 
 The dumper has been tested on x86 (x86_64) and ARM (AArch64) processors.
 
-The dumper is compatible with a target process running on CPython 3.8 - 3.11.
+The dumper is compatible with a target process running on CPython 3.8 - 3.12.
 
 The target process were tested in the following OSes:
 - Alpine Linux;
@@ -206,7 +206,7 @@ Integration tests run on CI. However, end-to-end tests that use the real GDB can
 make clean integration-tests
 ```
 
-You need [pyenv](https://github.com/pyenv/pyenv) with Python 3.8, 3.9, 3.10, and 3.11 installed and [Poetry](https://python-poetry.org/).
+You need [pyenv](https://github.com/pyenv/pyenv) with Python 3.8, 3.9, 3.10, 3.11, and 3.12 installed and [Poetry](https://python-poetry.org/).
 
 ## License
 
