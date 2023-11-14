@@ -23,6 +23,7 @@ dist/pyheap_dump: build/requirements.txt build-src
 	mkdir -p dist
 	poetry run pex \
 		--requirement=build/requirements.txt \
+		--python-shebang '#!/usr/bin/env python' \
 		--sources-directory=build/src \
 		--entry-point=pyheap_dump:main \
 		--output-file=$@
