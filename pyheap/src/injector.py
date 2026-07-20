@@ -93,11 +93,16 @@ class DumpPythonHeap(gdb.Function):
         code_char_string: gdb.Value,
         heap_file: gdb.Value,
         str_repr_len: gdb.Value,
+        dump_attributes: gdb.Value,
         progress_file: gdb.Value,
     ) -> int:
         try:
             return self._invoke0(
-                code_char_string, heap_file, str_repr_len, progress_file
+                code_char_string,
+                heap_file,
+                str_repr_len,
+                dump_attributes,
+                progress_file,
             )
         except:
             import traceback
@@ -110,6 +115,7 @@ class DumpPythonHeap(gdb.Function):
         code_char_string: gdb.Value,
         heap_file: gdb.Value,
         str_repr_len: gdb.Value,
+        dump_attributes: gdb.Value,
         progress_file: gdb.Value,
     ) -> int:
         code_char_string_str = code_char_string.string()
@@ -118,6 +124,10 @@ class DumpPythonHeap(gdb.Function):
         if str_repr_len.type.name != "int":
             raise ValueError("str_repr_len must be int")
         str_repr_len_int = int(str_repr_len)
+
+        if dump_attributes.type.name != "int":
+            raise ValueError("dump_attributes must be int")
+        dump_attributes_int = int(dump_attributes)
 
         progress_file_str = progress_file.string()
         if not progress_file_str:
@@ -129,6 +139,7 @@ class DumpPythonHeap(gdb.Function):
             __file__="<pyheap>",  # doesn't matter for string-based execution
             heap_file=heap_file_str,
             str_repr_len=str_repr_len_int,
+            dump_attributes=dump_attributes_int,
             progress_file=progress_file_str,
         )
         with closing(globals_dict) as globals_dict:

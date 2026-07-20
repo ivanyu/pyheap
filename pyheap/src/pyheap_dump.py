@@ -115,6 +115,7 @@ def dump_heap(args: argparse.Namespace) -> int:
 
         print(f"Dumping heap from process {target_pid} into {args.file}")
         print(f"Max length of string representation is {args.str_repr_len}")
+        print(f"Dump object attributes: {not args.no_attribute}")
 
         cmd = [
             gdb_exe,
@@ -142,7 +143,7 @@ def dump_heap(args: argparse.Namespace) -> int:
             "-ex",
             "set max-value-size unlimited",
             "-ex",
-            f'set $dump_success = $dump_python_heap("{dumper_code}", "{heap_file}", {args.str_repr_len}, "{progress_file}")',
+            f'set $dump_success = $dump_python_heap("{dumper_code}", "{heap_file}", {args.str_repr_len}, {int(not args.no_attribute)}, "{progress_file}")',
             "-ex",
             "detach",
             "-ex",
@@ -307,6 +308,13 @@ def main() -> None:
         required=False,
         help="max length of string representation of objects (-1 disables it)",
         default=1000,
+    )
+
+    parser.add_argument(
+        "--no-attribute",
+        action="store_true",
+        default=False,
+        help="do not dump object attributes",
     )
 
     parser.add_argument(

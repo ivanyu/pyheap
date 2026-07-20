@@ -23,6 +23,7 @@ from typing import Any, NoReturn
 
 heap_file = sys.argv[1]
 dump_str_repr = sys.argv[2].lower() == "true"
+dump_attributes = sys.argv[3].lower() == "true"
 
 
 class DisabledOperations:
@@ -106,6 +107,7 @@ def function3(a: int) -> None:
             "__file__": "<pyheap>",
             "heap_file": heap_file,
             "str_repr_len": 1000 if dump_str_repr else -1,
+            "dump_attributes": dump_attributes,
             "progress_file": progress_file_path,
         },
     )

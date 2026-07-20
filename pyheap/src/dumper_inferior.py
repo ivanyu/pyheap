@@ -54,6 +54,7 @@ This module is executed in the context of the inferior.
 # Inputs:
 heap_file: str
 str_repr_len: int
+dump_attributes: int
 progress_file: str
 
 # Output:
@@ -187,14 +188,20 @@ def _dump_heap() -> str:
         messages = []
         all_locals = _write_threads_and_return_locals(writer, messages)
 
-        frequent_attributes = _write_frequent_attributes(writer)
+        if dump_attributes:
+            frequent_attributes = _write_frequent_attributes(writer)
+        else:
+            writer.write_unsigned_int(0)
+            frequent_attributes = {}
 
         attribute_errors_total = 0
         (
             common_types,
             objects_to_visit,
             attribute_errors,
-        ) = _write_common_type_attributes(writer, frequent_attributes)
+        ) = _write_common_type_attributes(
+            writer, frequent_attributes, bool(dump_attributes)
+        )
         attribute_errors_total += attribute_errors
 
         objects_to_visit.extend(well_known_types)
@@ -206,6 +213,7 @@ def _dump_heap() -> str:
                 locals_=all_locals,
                 frequent_attributes=frequent_attributes,
                 common_types=common_types,
+                dump_attributes=bool(dump_attributes),
                 additional_objects_to_visit=objects_to_visit,
                 progress_reporter=progress_reporter,
                 messages=messages,
@@ -439,7 +447,9 @@ def _write_frequent_attributes(writer: _HeapWriter) -> Dict[str, int]:
 
 
 def _write_common_type_attributes(
-    writer: _HeapWriter, frequent_attributes: Dict[str, int]
+    writer: _HeapWriter,
+    frequent_attributes: Dict[str, int],
+    dump_attributes: bool,
 ) -> Tuple[Set[Type], List[Any], int]:
     """Write attributes of "common" types.
 
@@ -469,13 +479,14 @@ def _write_common_type_attributes(
 
         # Attributes
         attrs: List[Tuple[str, object]] = []
-        for attr in dir(example):
-            try:
-                attr_value = inspect.getattr_static(example, attr)
-                to_visit.append(attr_value)
-                attrs.append((attr, attr_value))
-            except (AttributeError, ValueError):
-                attribute_errors += 1
+        if dump_attributes:
+            for attr in dir(example):
+                try:
+                    attr_value = inspect.getattr_static(example, attr)
+                    to_visit.append(attr_value)
+                    attrs.append((attr, attr_value))
+                except (AttributeError, ValueError):
+                    attribute_errors += 1
 
         writer.write_unsigned_int(len(attrs))
         for attr, attr_value in attrs:
@@ -491,6 +502,7 @@ def _write_objects_and_return_types(
     locals_: List[Any],
     frequent_attributes: Dict[str, int],
     common_types: Set[Type],
+    dump_attributes: bool,
     additional_objects_to_visit: List[Any],
     progress_reporter: ProgressReporter,
     messages: List[str],
@@ -577,19 +589,23 @@ def _write_objects_and_return_types(
         for r_id in referent_ids:
             writer.write_unsigned_long(r_id)
 
-        # Attributes -- write them only for non-"common" types.
+        # Attributes are explanatory metadata, not object graph edges. Keep reference
+        # discovery above unconditional: --no-attribute may reduce detail, but it must
+        # not change retained-heap or inbound-reference conclusions.
+        # Write attributes only for non-"common" types.
         if type_ not in common_types:
             attrs: List[Tuple[str, object]] = []
-            try:
-                for attr in dir(obj):
-                    try:
-                        attr_value = inspect.getattr_static(obj, attr)
-                        to_visit.append(attr_value)
-                        attrs.append((attr, attr_value))
-                    except (AttributeError, ValueError):
-                        attribute_errors += 1
-            except Exception as e:
-                messages.append(f"Error collecting attributes of type {type_}: {e}")
+            if dump_attributes:
+                try:
+                    for attr in dir(obj):
+                        try:
+                            attr_value = inspect.getattr_static(obj, attr)
+                            to_visit.append(attr_value)
+                            attrs.append((attr, attr_value))
+                        except (AttributeError, ValueError):
+                            attribute_errors += 1
+                except Exception as e:
+                    messages.append(f"Error collecting attributes of type {type_}: {e}")
 
             writer.write_unsigned_int(len(attrs))
             for attr, attr_value in attrs:

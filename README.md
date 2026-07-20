@@ -56,6 +56,11 @@ $ python3 pyheap_dump -h
 ```
 for additional options.
 
+Use `--no-attribute` to skip collecting object attributes. This reduces dump
+time and file size when attributes aren't needed for the analysis. Attributes
+are explanatory metadata and aren't used to build the object reference graph,
+so this option doesn't affect retained-heap or inbound-reference calculations.
+
 #### Running in a Docker Container
 
 The dumper also can be run in a Docker container.

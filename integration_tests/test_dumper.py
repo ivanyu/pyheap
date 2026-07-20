@@ -38,7 +38,7 @@ def test_dumper(tmp_path: Path, dump_str_repr: bool) -> None:
     heap_file = str(tmp_path / "test_heap.pyheap")
     mock_inferior_file = str(Path(__file__).parent / "resources" / "mock_inferior.py")
     r = subprocess.run(
-        ["python", mock_inferior_file, heap_file, str(dump_str_repr)],
+        ["python", mock_inferior_file, heap_file, str(dump_str_repr), "true"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -70,6 +70,42 @@ def test_dumper(tmp_path: Path, dump_str_repr: bool) -> None:
         os.remove(heap_file)
 
 
+@pytest.mark.parametrize("dump_str_repr", [True, False])
+def test_dumper_without_attributes(tmp_path: Path, dump_str_repr: bool) -> None:
+    heap_file = str(tmp_path / "test_heap_without_attributes.pyheap")
+    mock_inferior_file = str(Path(__file__).parent / "resources" / "mock_inferior.py")
+    r = subprocess.run(
+        ["python", mock_inferior_file, heap_file, str(dump_str_repr), "false"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    print(r.stdout.decode("utf-8"))
+    print(r.stderr.decode("utf-8"))
+
+    assert r.returncode == 0
+    assert not r.stdout
+    assert not r.stderr
+
+    try:
+        with open(heap_file, "rb") as f:
+            mm = mmap.mmap(f.fileno(), length=0, access=mmap.ACCESS_READ)
+            with closing(mm):
+                reader = HeapReader(mm)
+                heap = reader.read()
+
+                assert reader._offset == mm.size()
+                assert all(not obj.attributes for obj in heap.objects.values())
+                assert all(
+                    not common_type.attributes
+                    for common_type in reader._common_types.values()
+                )
+                _check_header(heap, dump_str_repr)
+                _check_objects_with_contents(heap, dump_str_repr)
+    finally:
+        os.remove(heap_file)
+
+
 def _check_threads_and_objects(
     heap: Heap, mock_inferior_file: str, dump_str_repr: bool
 ) -> None:
@@ -91,7 +127,7 @@ def _check_threads_and_objects(
 
     frame = main_thread.stack_trace[0]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 103
+    assert frame.lineno == 104
     assert frame.co_name == "function3"
     assert set(frame.locals.keys()) == {
         "a",
@@ -125,7 +161,7 @@ def _check_threads_and_objects(
 
     frame = main_thread.stack_trace[1]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 115
+    assert frame.lineno == 117
     assert frame.co_name == "function2"
     assert set(frame.locals.keys()) == {"a", "b"}
     addr = frame.locals["a"]
@@ -146,7 +182,7 @@ def _check_threads_and_objects(
 
     frame = main_thread.stack_trace[2]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 119
+    assert frame.lineno == 121
     assert frame.co_name == "function1"
     assert set(frame.locals.keys()) == {"a", "b", "c"}
 
@@ -176,7 +212,7 @@ def _check_threads_and_objects(
 
     frame = main_thread.stack_trace[3]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 122
+    assert frame.lineno == 124
     assert frame.co_name == "<module>"
     expected_locals = {
         "__name__",
@@ -192,6 +228,7 @@ def _check_threads_and_objects(
         "os",
         "tempfile",
         "dump_str_repr",
+        "dump_attributes",
         "time",
         "Path",
         "Any",
@@ -281,7 +318,7 @@ def _check_threads_and_objects(
 
     frame = second_thread.stack_trace[0]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 65
+    assert frame.lineno == 66
     assert frame.co_name == "_thread_inner"
     assert set(frame.locals.keys()) == {
         "self",
@@ -308,7 +345,7 @@ def _check_threads_and_objects(
 
     frame = second_thread.stack_trace[1]
     assert frame.co_filename == mock_inferior_file
-    assert frame.lineno == 68
+    assert frame.lineno == 69
     assert frame.co_name == "run"
     assert set(frame.locals.keys()) == {"self", "__class__"}
 
